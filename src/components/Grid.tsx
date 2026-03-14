@@ -20,8 +20,7 @@ import { useChain } from '../hooks/useChain';
 import Tile from './Tile';
 import ScorePopup from './ScorePopup';
 
-// BombOverlay imported in Update 05 — placeholder div used for now
-// import BombOverlay from './Bomb';
+import BombOverlay from './Bomb';
 
 interface GridProps {
   grid: Cell[][];
@@ -151,26 +150,9 @@ export default function Grid({
         </div>
       </motion.div>
 
-      {/* Bomb placeholders (replaced in Update 05) */}
+      {/* Bomb overlays */}
       {activeBombs.map(bomb => (
-        <div
-          key={bomb.id}
-          style={{
-            position: 'absolute',
-            left: bomb.col * (tileSize + 4) + 8,
-            top: bomb.row * (tileSize + 4),
-            width: tileSize,
-            height: tileSize,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            zIndex: 20,
-            fontSize: '24px',
-          }}
-        >
-          💣
-        </div>
+        <BombOverlay key={bomb.id} bomb={bomb} tileSize={tileSize} />
       ))}
 
       {/* Score popups */}

@@ -7,7 +7,7 @@ import type { Cell, DieFace, GridPos, LobbySettings } from '../types/game';
 import { FACE_TO_COLOR, GAME_CONSTANTS } from '../types/game';
 import { scoreFarkle } from './farkleScorer';
 import { seededRng } from './csprng';
-import { nanoid } from 'nanoid';
+import  nanoid  from 'nanoid';
 
 const BLOCKER_DENSITY_RANGES = {
   LOW: { min: 3, max: 4 },

@@ -113,6 +113,7 @@ export const GAME_CONSTANTS = {
   BOMB_STONE_PTS: 50,
   ARCHIVIST_PCT: 0.15,
   REACTION_MS: 3000,
+  CASCADE_MS: 50,
 } as const;
 
 export const RALLY_MILESTONES = [

@@ -80,7 +80,7 @@ function reducer(state: GameState, action: Action): GameState {
           multiplierStep: 0,
           consecutiveChains: 0,
           phase: 'FARKLE_ANIM',
-          popups: [...state.popups, { id: nanoid(), score: 0, label: 'FARKLE', color: 'red', x: 50, y: 50 }],
+          popups: [...state.popups, { id: nanoid(), score: 0, label: 'FARKLE', color: 'red', row: chain[0].row, col: chain[0].col }],
           lastChainResult: { score: 0, scaledScore: 0, isFarkle: true, combo: 'Farkle', triggersBomb: null }
         };
       }
@@ -123,7 +123,7 @@ function reducer(state: GameState, action: Action): GameState {
         phase: 'REFILLING',
         activeBombs: newActiveBombs,
         farklePool: newFarklePool,
-        popups: [...state.popups, { id: nanoid(), score: scaledScore, label: result.combo, color: triggersBomb ? 'gold' : 'green', x: 50, y: 50 }],
+        popups: [...state.popups, { id: nanoid(), score: scaledScore, label: result.combo, color: triggersBomb ? 'gold' : 'green', row: chain[Math.floor(chain.length / 2)].row, col: chain[Math.floor(chain.length / 2)].col }],
         lastChainResult: { score: rawScore, scaledScore, isFarkle: false, combo: result.combo, triggersBomb }
       };
     }
@@ -174,7 +174,7 @@ function reducer(state: GameState, action: Action): GameState {
         unbanked: state.unbanked + bombResult.ptsEarned,
         activeBombs: state.activeBombs.filter(b => b.id !== action.bombId),
         phase: 'REFILLING',
-        popups: [...state.popups, { id: nanoid(), score: bombResult.ptsEarned, label: bomb.type === 'STANDARD' ? 'BOOM!' : '🌈 RAINBOW!', color: 'gold', x: 50, y: 50 }]
+        popups: [...state.popups, { id: nanoid(), score: bombResult.ptsEarned, label: bomb.type === 'STANDARD' ? 'BOOM!' : '🌈 RAINBOW!', color: 'gold', row: bomb.row, col: bomb.col }]
       };
     }
 

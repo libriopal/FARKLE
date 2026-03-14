@@ -270,13 +270,17 @@ export function applyStandardBomb(
  * Applies a Rainbow Bomb explosion to the grid.
  * @param grid The current game grid.
  * @param targetColor The color of tiles to destroy.
- * @param settings Lobby settings containing rainbow bomb rewards.
+ * @param multiplier The current multiplier.
+ * @param rainbowRedReward The base reward for red tiles.
+ * @param rainbowBlueReward The base reward for blue tiles.
  * @returns The updated grid, points earned, and affected cell positions.
  */
 export function applyRainbowBomb(
   grid: Cell[][],
   targetColor: string,
-  settings: Pick<LobbySettings, 'rainbowRedReward' | 'rainbowBlueReward'>
+  multiplier: number,
+  rainbowRedReward: number,
+  rainbowBlueReward: number
 ): { grid: Cell[][], ptsEarned: number, affected: GridPos[] } {
   const newGrid = cloneGrid(grid);
   let ptsEarned = 0;
@@ -296,14 +300,59 @@ export function applyRainbowBomb(
         newGrid[r][c] = makeEmptyCell();
         
         if (targetColor === 'RED') {
-          ptsEarned += settings.rainbowRedReward;
+          ptsEarned += rainbowRedReward * multiplier;
         } else if (targetColor === 'BLUE') {
-          ptsEarned += settings.rainbowBlueReward;
+          ptsEarned += rainbowBlueReward * multiplier;
         }
       }
     }
   }
   return { grid: newGrid, ptsEarned, affected };
+}
+
+/**
+ * Damages Stone Blockers adjacent (4-directional) to any cell in the chain.
+ * Called after a scoring chain is cleared. Does not affect cells inside
+ * the chain itself — only their neighbors.
+ * Lock Blockers are immune. Ice Blockers are immune (bomb-only).
+ *
+ * @param grid The current game grid (already has chain cells cleared).
+ * @param chain The GridPos array of the committed chain.
+ * @param isHeadhunter If true, deals 2 damage instead of 1 (destroys in 1 hit).
+ * @returns The updated grid.
+ */
+export function damageAdjacentBlockers(
+  grid: Cell[][],
+  chain: GridPos[],
+  isHeadhunter = false
+): Cell[][] {
+  const g = cloneGrid(grid);
+  const rows = g.length;
+  const cols = g[0].length;
+  const dirs = [
+    { dr: -1, dc: 0 }, { dr: 1, dc: 0 },
+    { dr: 0, dc: -1 }, { dr: 0, dc: 1 }
+  ];
+  const chainSet = new Set(chain.map(p => `${p.row},${p.col}`));
+
+  for (const pos of chain) {
+    for (const { dr, dc } of dirs) {
+      const nr = pos.row + dr;
+      const nc = pos.col + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      if (chainSet.has(`${nr},${nc}`)) continue; // skip chain cells
+      const cell = g[nr][nc];
+      if (cell.type !== 'STONE') continue; // only Stone takes adjacent damage
+      const damage = isHeadhunter ? 2 : 1;
+      const newHealth = Math.max(0, (cell.health ?? 2) - damage);
+      if (newHealth === 0) {
+        g[nr][nc] = { id: cell.id, face: null, type: 'NONE', state: 'EMPTY' };
+      } else {
+        g[nr][nc] = { ...cell, health: newHealth };
+      }
+    }
+  }
+  return g;
 }
 
 /**

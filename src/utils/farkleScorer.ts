@@ -3,7 +3,7 @@
  * @description Pure Farkle scoring engine using max-partition stacking.
  */
 
-import { DieFace } from '../types/game';
+import type { DieFace } from '../types/game';
 
 /**
  * Result of a Farkle scoring evaluation.

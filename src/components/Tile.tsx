@@ -1,9 +1,9 @@
 /**
  * @file src/components/Tile.tsx
- * @description Renders a single 3D glowing die tile or blocker cell.
+ * @description Renders a 3D die or blocker cell with theme-aware styling and animations.
  */
 
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import type { Cell } from '../types/game';
 
 interface TileProps {
@@ -19,123 +19,114 @@ interface TileProps {
   onPointerUp: () => void;
 }
 
+const DARK_BODY = ['#0f0305', '#0f0800', '#0f0d00', '#000f05', '#00050f', '#07000f'];
+const DARK_PIP = ['#ff2244', '#ff8800', '#ffdd00', '#00ff88', '#0099ff', '#cc44ff'];
+const LIGHT_BODY = ['#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#2563eb', '#7c3aed'];
+
+const DARK_GLOWS = [
+  '0 8px 16px rgba(0,0,0,0.8), 0 0 12px #ff224466, 0 0 24px #ff000033',
+  '0 8px 16px rgba(0,0,0,0.8), 0 0 12px #ff880066, 0 0 28px #ff660022',
+  '0 8px 16px rgba(0,0,0,0.8), 0 0 16px #ffdd0066, 0 0 40px #ffaa0022',
+  '0 8px 16px rgba(0,0,0,0.8), 0 0 10px #00ff8866, 0 0 20px #00ff4422',
+  '0 8px 16px rgba(0,0,0,0.8), 0 0 18px #0088ff66, 0 0 40px #0055ff22',
+  '0 8px 16px rgba(0,0,0,0.8), 0 0 12px #aa00ff66, -2px 0 8px #ff008833, 2px 0 8px #0000ff33'
+];
+const LIGHT_SHADOW = '0 6px 12px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.15)';
+
 /**
- * Returns the specific CSS properties (background, shadow, pip color) for a given die face.
- * @param face The die face value (1-6).
- * @param isChained Whether the tile is currently part of an active chain.
- * @returns A style object containing the base color, pip color, and glow effects.
+ * Renders a single circular pip.
+ *
+ * @param {Object} props - The component props.
+ * @param {string} props.color - The color of the pip.
+ * @param {number} props.size - The size of the pip in pixels.
+ * @param {boolean} props.glowing - Whether the pip should glow (dark theme).
+ * @returns {JSX.Element} The rendered pip.
  */
-function getDieStyle(face: number, isChained: boolean): { bg: string; pip: string; shadow: string } {
-  const intensity = isChained ? 1.5 : 1;
-  
-  switch (face) {
-    case 1: // RED
-      return {
-        bg: '#1a0508',
-        pip: '#ff2244',
-        shadow: `0 0 ${8 * intensity}px #ff2244, 0 0 ${20 * intensity}px #ff000088, 0 0 ${2 * intensity}px #fff`
-      };
-    case 2: // ORANGE
-      return {
-        bg: '#1a0d00',
-        pip: '#ff8800',
-        shadow: `0 0 ${12 * intensity}px #ff8800, 0 0 ${28 * intensity}px #ff660044`
-      };
-    case 3: // YELLOW
-      return {
-        bg: '#1a1500',
-        pip: '#ffdd00',
-        shadow: `0 0 ${15 * intensity}px #ffdd00, 0 0 ${35 * intensity}px #ffaa0066, 0 0 ${60 * intensity}px #ffdd0022`
-      };
-    case 4: // GREEN
-      return {
-        bg: '#001a0a',
-        pip: '#00ff88',
-        shadow: `0 0 ${6 * intensity}px #00ff88, 0 0 ${14 * intensity}px #00ff4488, 0 0 ${1 * intensity}px #00ffaa`
-      };
-    case 5: // BLUE
-      return {
-        bg: '#00091a',
-        pip: '#0099ff',
-        shadow: `0 0 ${20 * intensity}px #0088ff, 0 0 ${45 * intensity}px #0055ff44, 0 0 ${8 * intensity}px #00aaff`
-      };
-    case 6: // PURPLE
-      return {
-        bg: '#0d001a',
-        pip: '#cc44ff',
-        shadow: `0 0 ${10 * intensity}px #aa00ff, 0 0 ${20 * intensity}px #ff00ff44, -${2 * intensity}px 0 ${8 * intensity}px #ff0088, ${2 * intensity}px 0 ${8 * intensity}px #0000ff`
-      };
-    default:
-      return { bg: '#111', pip: '#fff', shadow: 'none' };
+function CirclePip({ color, size, glowing }: { color: string; size: number; glowing: boolean }) {
+  if (glowing) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          border: `2px solid ${color}`,
+          backgroundColor: 'transparent',
+          boxShadow: `0 0 ${size / 2}px ${color}, inset 0 0 ${size / 4}px ${color}`,
+          boxSizing: 'border-box'
+        }}
+      />
+    );
   }
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
+        boxSizing: 'border-box'
+      }}
+    />
+  );
 }
 
 /**
- * Renders the pip layout for a specific die face using pure CSS geometry.
- * @param props Configuration for the pip grid.
+ * Renders the 3x3 grid of pips for a die face.
+ *
+ * @param {Object} props - The component props.
+ * @param {number} props.face - The face value (1-6).
+ * @param {string} props.color - The color of the pips.
+ * @param {boolean} props.glowing - Whether the pips should glow.
+ * @param {number} props.scale - The scale factor for the pips.
+ * @param {boolean} [props.isSide] - Whether this is a side face (adjusts padding and size).
+ * @returns {JSX.Element} The rendered pip layout.
  */
-function PipGrid({ face, color, size }: { face: number; color: string; size: 'full' | 'small' }) {
-  const scale = size === 'small' ? 0.7 : 1;
-  const containerStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gridTemplateRows: 'repeat(3, 1fr)',
-    width: '100%',
-    height: '100%',
-    padding: `${12 * scale}px`,
-    gap: `${4 * scale}px`,
-    alignItems: 'center',
-    justifyItems: 'center',
-  };
+function PipLayout({ face, color, glowing, scale, isSide = false }: { face: number; color: string; glowing: boolean; scale: number; isSide?: boolean }) {
+  const pipSize = (isSide ? 6 : 10) * scale;
+  
+  const pips = Array(9).fill(false);
+  if (face === 1) {
+    pips[4] = true;
+  } else if (face === 2) {
+    pips[2] = true; pips[6] = true;
+  } else if (face === 3) {
+    pips[2] = true; pips[4] = true; pips[6] = true;
+  } else if (face === 4) {
+    pips[0] = true; pips[2] = true; pips[6] = true; pips[8] = true;
+  } else if (face === 5) {
+    pips[0] = true; pips[2] = true; pips[4] = true; pips[6] = true; pips[8] = true;
+  } else if (face >= 6) {
+    pips[0] = true; pips[2] = true; pips[3] = true; pips[5] = true; pips[6] = true; pips[8] = true;
+  }
 
-  const getPipShape = (f: number): React.CSSProperties => {
-    const baseSize = `${14 * scale}px`;
-    switch (f) {
-      case 1: // Diamond
-        return { width: `${20 * scale}px`, height: `${20 * scale}px`, backgroundColor: color, transform: 'rotate(45deg)' };
-      case 2: // Oval
-        return { width: `${10 * scale}px`, height: `${18 * scale}px`, backgroundColor: color, borderRadius: '50%' };
-      case 3: // Triangle
-        return { width: baseSize, height: baseSize, backgroundColor: color, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' };
-      case 4: // Square
-        return { width: baseSize, height: baseSize, backgroundColor: color };
-      case 5: // Circle
-        return { width: baseSize, height: baseSize, backgroundColor: color, borderRadius: '50%' };
-      case 6: // Hexagon
-        return { width: baseSize, height: baseSize, backgroundColor: color, clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' };
-      default:
-        return { width: baseSize, height: baseSize, backgroundColor: color, borderRadius: '50%' };
-    }
-  };
-
-  const renderPips = () => {
-    const shape = getPipShape(face);
-    const empty = <div />;
-    const pip = <div style={shape} />;
-
-    switch (face) {
-      case 1:
-        return <>{empty}{empty}{empty}{empty}{pip}{empty}{empty}{empty}{empty}</>;
-      case 2:
-        return <>{empty}{empty}{pip}{empty}{empty}{empty}{pip}{empty}{empty}</>;
-      case 3:
-        return <>{empty}{empty}{pip}{empty}{pip}{empty}{pip}{empty}{empty}</>;
-      case 4:
-        return <>{pip}{empty}{pip}{empty}{empty}{empty}{pip}{empty}{pip}</>;
-      case 5:
-        return <>{pip}{empty}{pip}{empty}{pip}{empty}{pip}{empty}{pip}</>;
-      case 6:
-        return <>{pip}{empty}{pip}{pip}{empty}{pip}{pip}{empty}{pip}</>;
-      default:
-        return null;
-    }
-  };
-
-  return <div style={containerStyle}>{renderPips()}</div>;
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateRows: 'repeat(3, 1fr)',
+        width: '100%',
+        height: '100%',
+        padding: isSide ? '2px' : `${12 * scale}px`,
+        boxSizing: 'border-box',
+      }}
+    >
+      {pips.map((show, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          {show ? <CirclePip color={color} size={pipSize} glowing={glowing} /> : <div style={{ width: '100%', height: '100%' }} />}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
- * The main Tile component.
+ * Renders a 3D die or blocker cell.
+ *
+ * @param {TileProps} props - The component props.
+ * @returns {JSX.Element} The rendered Tile component.
  */
 export default function Tile({
   cell,
@@ -147,163 +138,204 @@ export default function Tile({
   isAtCap,
   onPointerDown,
   onPointerEnter,
-  onPointerUp,
+  onPointerUp
 }: TileProps) {
-  if (cell.state === 'EMPTY' || cell.type === 'NONE') {
-    return <div className="w-full h-full" />;
+  const isDark = typeof document !== 'undefined' 
+    ? !document.documentElement.getAttribute('data-theme')?.includes('light')
+    : true;
+
+  if (!cell.face && cell.type === 'EMPTY') {
+    return <div style={{ width: '100%', height: '100%' }} />;
   }
 
-  const isBlocker = cell.type === 'STONE' || cell.type === 'ICE';
-  const isLock = cell.state === 'LOCKED';
-  const face = cell.face ?? 1;
-  const oppositeFace = 7 - face;
+  const isStone = cell.type === 'BLOCKER' && cell.blockerType === 'STONE';
+  const isIce = cell.type === 'BLOCKER' && cell.blockerType === 'ICE';
+  const isLock = cell.type === 'BLOCKER' && cell.blockerType === 'LOCK';
+  const isDie = cell.type === 'DIE' || isLock;
 
-  const styleProps = getDieStyle(face, isChained);
-  
-  // Overrides for blockers
-  let bg = styleProps.bg;
-  let pipColor = styleProps.pip;
-  let shadow = styleProps.shadow;
-  let border = 'none';
-  let opacity = isAtCap && !isChained ? 0.35 : 1;
+  const faceValue = cell.face || 1;
+  const faceIdx = faceValue - 1;
 
-  if (cell.type === 'STONE') {
-    bg = '#1a1a1a';
-    shadow = '0 0 8px #ffffff44';
-    border = cell.health === 1 ? '2px dashed #666' : '2px solid #444';
-  } else if (cell.type === 'ICE') {
-    bg = '#050d14';
-    shadow = '0 0 12px #00ffff, 0 0 25px #00ffff66';
-    border = '1px solid #00ffff44';
-  } else if (isLock) {
-    shadow = styleProps.shadow.replace(/px/g, 'px').replace(/rgba?\([^)]+\)|#[0-9a-fA-F]+/g, (match) => {
-      // Very rough opacity reduction for the glow string, relying on the fact that we know the exact strings
-      return match; // In a real scenario we'd parse this better, but for now we just use the base shadow
-    });
-    // We'll apply a manual opacity reduction to the whole container later if needed, or just use the base shadow.
-    // The spec says "reduced opacity glow (50% of normal)", we'll simulate this by not applying the isChained boost.
-    const lockStyle = getDieStyle(face, false);
-    shadow = lockStyle.shadow;
+  let bodyColor = '';
+  let pipColor = '';
+  let shadow = '';
+  let edgeHighlight = '';
+
+  if (isDie) {
+    if (isDark) {
+      bodyColor = DARK_BODY[faceIdx];
+      pipColor = DARK_PIP[faceIdx];
+      shadow = DARK_GLOWS[faceIdx];
+      edgeHighlight = 'rgba(255,255,255,0.15)';
+    } else {
+      bodyColor = LIGHT_BODY[faceIdx];
+      pipColor = 'rgba(0,0,0,0.8)';
+      shadow = LIGHT_SHADOW;
+      edgeHighlight = 'rgba(255,255,255,0.6)';
+    }
+  } else if (isStone) {
+    bodyColor = isDark ? '#111111' : '#9ca3af';
+    shadow = isDark ? '0 0 8px rgba(255,255,255,0.2)' : LIGHT_SHADOW;
+    edgeHighlight = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)';
+  } else if (isIce) {
+    bodyColor = isDark ? '#030d14' : '#e0f2fe';
+    shadow = isDark ? '0 0 12px #00ffff66' : LIGHT_SHADOW;
+    edgeHighlight = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)';
   }
+
+  let containerScale = 1;
+  let containerOpacity = 1;
+  let containerFilter = 'none';
+  let topFaceOutline = 'none';
 
   if (isChained) {
-    border = '2px solid white';
+    containerScale = 1.1;
+    if (isDark) {
+      shadow = `${shadow}, 0 0 20px rgba(255,255,255,0.4)`;
+      topFaceOutline = '2px solid rgba(255,255,255,0.8)';
+    } else {
+      shadow = `0 10px 20px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2)`;
+      topFaceOutline = '2px solid white';
+    }
+  } else if (isAtCap) {
+    containerOpacity = 0.3;
+    containerFilter = 'saturate(0.2)';
   }
 
-  const containerStyle: React.CSSProperties = {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    touchAction: 'none',
-    pointerEvents: isBlocker ? 'none' : 'auto',
-    opacity,
-    filter: isAtCap && !isChained ? 'saturate(0.5)' : 'none',
-    transformStyle: 'preserve-3d',
-    perspective: '1000px',
-  };
+  if (isLock) {
+    if (isDark) {
+      shadow = `0 4px 8px rgba(0,0,0,0.8), 0 0 8px ${DARK_PIP[faceIdx]}88`;
+    }
+  }
 
-  const topFaceStyle: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: bg,
-    boxShadow: shadow,
-    border,
-    borderRadius: '12px',
-    transform: 'rotateX(20deg) translateZ(10px)',
-    transformOrigin: 'bottom center',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    zIndex: 2,
-  };
+  if (isStone) {
+    topFaceOutline = isDark ? (cell.health === 1 ? '2px dashed #333' : '2px solid #333') : '2px solid #6b7280';
+  } else if (isIce) {
+    topFaceOutline = isDark ? '1px solid #00ffff44' : '1px solid #0ea5e944';
+  }
 
-  const sideFaceStyle: React.CSSProperties = {
-    position: 'absolute',
-    right: '-8px',
-    top: '4px',
-    bottom: '4px',
-    width: '16px',
-    backgroundColor: bg,
-    filter: 'brightness(0.8)',
-    transform: 'rotateY(70deg) translateZ(10px)',
-    transformOrigin: 'left center',
-    borderTopRightRadius: '8px',
-    borderBottomRightRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    zIndex: 1,
-  };
+  const pointerEvents = (isStone || isIce) ? 'none' : 'auto';
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={cell.id}
-        style={containerStyle}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: isChained ? 1.08 : 1, opacity }}
-        exit={{ scale: 0, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        onPointerDown={(e) => onPointerDown(e, row, col)}
-        onPointerEnter={() => onPointerEnter(row, col)}
-        onPointerUp={onPointerUp}
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: containerScale, opacity: containerOpacity, filter: containerFilter }}
+      exit={{ scale: 0, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+      style={{
+        position: 'relative',
+        transformStyle: 'preserve-3d',
+        perspective: '600px',
+        width: '100%',
+        height: '100%',
+        touchAction: 'none',
+        cursor: pointerEvents === 'auto' ? 'pointer' : 'default',
+        pointerEvents: pointerEvents as any,
+        boxShadow: shadow,
+        borderRadius: '18%',
+      }}
+      onPointerDown={(e) => onPointerDown(e, row, col)}
+      onPointerEnter={() => onPointerEnter(row, col)}
+      onPointerUp={onPointerUp}
+    >
+      {/* TOP FACE */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '18%',
+          transform: 'rotateX(25deg) rotateY(-15deg) translateZ(6px)',
+          transformOrigin: 'center center',
+          backgroundColor: bodyColor,
+          borderTop: `1px solid ${edgeHighlight}`,
+          borderLeft: `1px solid ${edgeHighlight}`,
+          outline: topFaceOutline !== 'none' ? topFaceOutline : undefined,
+          outlineOffset: isChained ? '2px' : '0px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
       >
-        {/* TOP FACE */}
-        <div style={topFaceStyle}>
-          {cell.type === 'STONE' ? (
-            <div style={{ color: '#666', fontSize: '24px', fontWeight: 'bold' }}>
-              {cell.health}
-            </div>
-          ) : cell.type === 'ICE' ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '28px', color: '#00ffff', textShadow: '0 0 8px #00ffff' }}>❄️</span>
-              <span style={{ position: 'absolute', top: '4px', right: '6px', fontSize: '12px', color: '#00ffff', fontWeight: 'bold' }}>{face}</span>
-            </div>
-          ) : (
-            <PipGrid face={face} color={pipColor} size="full" />
-          )}
+        {isDie && <PipLayout face={faceValue} color={pipColor} glowing={isDark} scale={1} />}
+        {isStone && <div style={{ color: isDark ? '#fff' : '#000', fontWeight: 'bold', fontSize: '24px' }}>{cell.health}</div>}
+        {isIce && (
+          <>
+            <div style={{ fontSize: '24px' }}>❄️</div>
+            <div style={{ position: 'absolute', top: '4px', right: '6px', fontSize: '12px', fontWeight: 'bold', color: isDark ? '#fff' : '#000' }}>{faceValue}</div>
+          </>
+        )}
+        {isLock && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 158, 11, 0.2)', borderRadius: '18%' }}>
+            <span style={{ fontSize: '24px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>🔒</span>
+          </div>
+        )}
+      </div>
 
-          {isLock && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-              <span style={{ fontSize: '24px', filter: 'sepia(1) hue-rotate(-30deg) saturate(3)' }}>🔒</span>
-            </div>
-          )}
+      {/* RIGHT SIDE FACE */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '8%',
+          bottom: '8%',
+          right: '-14px',
+          width: '14px',
+          borderRadius: '0 18% 18% 0',
+          transform: 'rotateY(90deg) translateZ(0px)',
+          transformOrigin: 'left center',
+          filter: 'brightness(0.55)',
+          backgroundColor: bodyColor,
+          boxSizing: 'border-box',
+          overflow: 'hidden'
+        }}
+      >
+        {isDie && <PipLayout face={7 - faceValue} color={pipColor} glowing={isDark} scale={0.6} isSide />}
+      </div>
+
+      {/* FRONT-BOTTOM FACE */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '8%',
+          right: '8%',
+          bottom: '-10px',
+          height: '10px',
+          borderRadius: '0 0 18% 18%',
+          transform: 'rotateX(-90deg) translateZ(0px)',
+          transformOrigin: 'top center',
+          filter: 'brightness(0.40)',
+          backgroundColor: bodyColor,
+          boxSizing: 'border-box',
+          overflow: 'hidden'
+        }}
+      >
+        {isDie && <PipLayout face={Math.max(1, (faceValue + 2) % 6)} color={pipColor} glowing={isDark} scale={0.4} isSide />}
+      </div>
+
+      {/* CHAIN BADGE */}
+      {isChained && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '-6px',
+            right: '-6px',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            backgroundColor: 'white',
+            color: 'black',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
+          }}
+        >
+          {chainIndex + 1}
         </div>
-
-        {/* RIGHT SIDE FACE (only for normal dice and locks) */}
-        {!isBlocker && (
-          <div style={sideFaceStyle}>
-            <PipGrid face={oppositeFace} color={pipColor} size="small" />
-          </div>
-        )}
-
-        {/* CHAIN BADGE */}
-        {isChained && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '-6px',
-              right: '-6px',
-              backgroundColor: 'white',
-              color: 'black',
-              borderRadius: '50%',
-              width: '20px',
-              height: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              zIndex: 10,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
-            }}
-          >
-            {chainIndex + 1}
-          </div>
-        )}
-      </motion.div>
-    </AnimatePresence>
+      )}
+    </motion.div>
   );
 }

@@ -235,41 +235,60 @@ export function useCascadeLoop(
   weights: [number, number, number, number, number, number]
 ): void {
   const rngRef = useRef(Math.random);
+  const gridRef = useRef<Cell[][]>(grid);
+  const weightsRef = useRef(weights);
+
+  useEffect(() => {
+    gridRef.current = grid;
+  });
+
+  useEffect(() => {
+    weightsRef.current = weights;
+  });
 
   useEffect(() => {
     if (phase !== 'REFILLING') return;
 
-    const timer = setTimeout(() => {
-      // Step 1: apply one gravity step
-      const { grid: afterGravity, changed } = stepGravity(grid);
+    let active = true;
+
+    function tick() {
+      if (!active) return;
+
+      const g = gridRef.current;
+      const w = weightsRef.current;
+
+      const { grid: afterGravity, changed } = stepGravity(g);
       if (changed) {
+        gridRef.current = afterGravity;
         dispatch({ type: 'STEP_CASCADE', grid: afterGravity });
+        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      // Step 2: if still empty cells below, wait
-      if (hasEmptyBelow(grid)) {
-        dispatch({ type: 'STEP_CASCADE', grid });
+      if (hasEmptyBelow(g)) {
+        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      // Step 3: spawn new tiles at top
       const { grid: afterSpawn, changed: spawned } = spawnTiles(
-        grid, weights, rngRef.current
+        g, w, rngRef.current
       );
       if (spawned) {
-        dispatch({ type: 'STEP_CASCADE', grid: normalizeTiles(afterSpawn) });
+        const normalized = normalizeTiles(afterSpawn);
+        gridRef.current = normalized;
+        dispatch({ type: 'STEP_CASCADE', grid: normalized });
+        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      // Step 4: stable — done
       dispatch({ type: 'REFILL_COMPLETE' });
+    }
 
-    }, GAME_CONSTANTS.CASCADE_MS);
+    setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
 
-    return () => clearTimeout(timer);
+    return () => { active = false; };
 
-  }, [phase, grid, dispatch, weights]);
+  }, [phase, dispatch]);
 }
 
 /**

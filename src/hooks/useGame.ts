@@ -342,6 +342,14 @@ export function useGame(settings: LobbySettings): {
     dispatch({ type: 'END_FARKLE_ANIM' });
   }, []);
 
+  useEffect(() => {
+    if (state.phase !== 'FARKLE_ANIM') return;
+    const t = setTimeout(() => {
+      dispatch({ type: 'END_FARKLE_ANIM' });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [state.phase]);
+
   return {
     state,
     commitChain,

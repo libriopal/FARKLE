@@ -3,7 +3,7 @@
  * @description The game board container that wires useChain to tiles, renders the score preview banner, farkle shake animation, bomb overlays, and score popups.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { motion } from 'motion/react';
 import type {
   Cell,
@@ -33,6 +33,7 @@ interface GridProps {
   onRemovePopup: (id: string) => void;
   playerRole?: RallyRole;
   isFarkleAnim?: boolean;
+  isDark?: boolean;
 }
 
 /**
@@ -49,7 +50,8 @@ export default function Grid({
   onCommitChain,
   onRemovePopup,
   playerRole,
-  isFarkleAnim
+  isFarkleAnim,
+  isDark = true
 }: GridProps) {
   const size = grid.length;
   const tileSize = Math.min(78, Math.floor((window.innerWidth - 40) / size));
@@ -63,13 +65,13 @@ export default function Grid({
     ),
   });
 
-  let previewResult = null;
-  if (chain.length > 0) {
+  const previewResult = useMemo(() => {
+    if (chain.length === 0) return null;
     const faces = chain
-      .map(p => grid[p.row][p.col].face)
+      .map(p => grid[p.row][p.col]?.face)
       .filter((f): f is DieFace => f !== null);
-    previewResult = scoreFarkle(faces, settings.threeOnesScore, settings.singleOneScore);
-  }
+    return scoreFarkle(faces, settings.threeOnesScore, settings.singleOneScore);
+  }, [chain, grid, settings.threeOnesScore, settings.singleOneScore]);
 
   const isAtCap = chain.length >= GAME_CONSTANTS.MAX_CHAIN;
   const chainSet = new Set(chain.map(p => `${p.row},${p.col}`));
@@ -145,6 +147,7 @@ export default function Grid({
                     chainIndex={idx}
                     chainLength={chain.length}
                     isAtCap={isAtCap && !chainSet.has(key)}
+                    isDark={isDark}
                     onPointerDown={startChain}
                     onPointerEnter={handleEnter}
                     onPointerUp={endChain}

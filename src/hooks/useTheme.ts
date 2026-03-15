@@ -20,6 +20,7 @@ const THEME_KEY = 'farkle-theme';
  */
 export function useTheme(): {
   theme: Theme;
+  isDark: boolean;
   toggleTheme: () => void;
   setTheme: (t: Theme) => void;
 } {
@@ -44,5 +45,5 @@ export function useTheme(): {
     setThemeState(t);
   }, []);
 
-  return { theme, toggleTheme, setTheme };
+  return { theme, isDark: theme !== 'light', toggleTheme, setTheme };
 }

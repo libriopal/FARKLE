@@ -3,6 +3,7 @@
  * @description Renders a 3D die or blocker cell with theme-aware styling and animations.
  */
 
+import { memo } from 'react';
 import { motion } from 'motion/react';
 import type { Cell } from '../types/game';
 
@@ -14,6 +15,7 @@ interface TileProps {
   chainIndex: number;
   chainLength: number;
   isAtCap: boolean;
+  isDark: boolean;
   onPointerDown: (e: React.PointerEvent, row: number, col: number) => void;
   onPointerEnter: (row: number, col: number) => void;
   onPointerUp: () => void;
@@ -128,7 +130,7 @@ function PipLayout({ face, color, glowing, scale, isSide = false }: { face: numb
  * @param {TileProps} props - The component props.
  * @returns {JSX.Element} The rendered Tile component.
  */
-export default function Tile({
+const Tile = memo(function Tile({
   cell,
   row,
   col,
@@ -136,13 +138,12 @@ export default function Tile({
   chainIndex,
   chainLength,
   isAtCap,
+  isDark,
   onPointerDown,
   onPointerEnter,
   onPointerUp
 }: TileProps) {
-  const isDark = typeof document !== 'undefined'
-    ? document.documentElement.getAttribute('data-theme') !== 'light'
-    : true;
+  // isDark comes from props — no DOM read on every render
 
   if (cell.state === 'EMPTY' || cell.type === 'NONE') {
     return <div style={{ width: '100%', height: '100%' }} />;
@@ -341,4 +342,6 @@ export default function Tile({
       )}
     </motion.div>
   );
-}
+});
+
+export default Tile;

@@ -19,19 +19,19 @@ interface TileProps {
   onPointerUp: () => void;
 }
 
-const DARK_BODY = ['#0f0305', '#0f0800', '#0f0d00', '#000f05', '#00050f', '#07000f'];
+const DARK_BODY = ['#1a1010', '#1a1208', '#181610', '#0e1a10', '#0a1018', '#120a1a'];
 const DARK_PIP = ['#ff2244', '#ff8800', '#ffdd00', '#00ff88', '#0099ff', '#cc44ff'];
 const LIGHT_BODY = ['#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#2563eb', '#7c3aed'];
 
 const DARK_GLOWS = [
-  '0 8px 16px rgba(0,0,0,0.8), 0 0 12px #ff224466, 0 0 24px #ff000033',
-  '0 8px 16px rgba(0,0,0,0.8), 0 0 12px #ff880066, 0 0 28px #ff660022',
-  '0 8px 16px rgba(0,0,0,0.8), 0 0 16px #ffdd0066, 0 0 40px #ffaa0022',
-  '0 8px 16px rgba(0,0,0,0.8), 0 0 10px #00ff8866, 0 0 20px #00ff4422',
-  '0 8px 16px rgba(0,0,0,0.8), 0 0 18px #0088ff66, 0 0 40px #0055ff22',
-  '0 8px 16px rgba(0,0,0,0.8), 0 0 12px #aa00ff66, -2px 0 8px #ff008833, 2px 0 8px #0000ff33'
+  '0 12px 24px #ff000055, 0 0 16px #ff224488, 0 0 32px #ff000044, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #ff660044, 0 0 16px #ff880088, 0 0 32px #ff660033, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #ffaa0044, 0 0 20px #ffdd0088, 0 0 40px #ffaa0033, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #00aa4444, 0 0 14px #00ff8888, 0 0 28px #00ff4433, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #0044ff44, 0 0 22px #0088ff88, 0 0 44px #0055ff33, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #6600ff44, 0 0 16px #aa00ff88, 0 0 32px #ff00ff33, -3px 0 12px #ff008844, 3px 0 12px #0000ff44, 0 4px 8px rgba(0,0,0,0.9)'
 ];
-const LIGHT_SHADOW = '0 6px 12px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.15)';
+const LIGHT_SHADOW = '6px 10px 16px rgba(0,0,0,0.28), 2px 4px 6px rgba(0,0,0,0.18)';
 
 /**
  * Renders a single circular pip.
@@ -52,7 +52,7 @@ function CirclePip({ color, size, glowing }: { color: string; size: number; glow
           borderRadius: '50%',
           border: `2px solid ${color}`,
           backgroundColor: 'transparent',
-          boxShadow: `0 0 ${size / 2}px ${color}, inset 0 0 ${size / 4}px ${color}`,
+          boxShadow: `0 0 ${size}px ${color}, 0 0 ${size * 1.5}px ${color}88, inset 0 0 ${size / 3}px ${color}`,
           boxSizing: 'border-box'
         }}
       />
@@ -64,8 +64,8 @@ function CirclePip({ color, size, glowing }: { color: string; size: number; glow
         width: size,
         height: size,
         borderRadius: '50%',
-        backgroundColor: 'rgba(0,0,0,0.75)',
-        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
+        backgroundColor: '#111111',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0px rgba(255,255,255,0.15)',
         boxSizing: 'border-box'
       }}
     />
@@ -235,7 +235,7 @@ export default function Tile({
         cursor: pointerEvents === 'auto' ? 'pointer' : 'default',
         pointerEvents: pointerEvents as React.CSSProperties['pointerEvents'],
         boxShadow: shadow,
-        borderRadius: '18%',
+        borderRadius: '22%',
       }}
       onPointerDown={(e) => onPointerDown(e, row, col)}
       onPointerEnter={() => onPointerEnter(row, col)}
@@ -246,7 +246,7 @@ export default function Tile({
         style={{
           position: 'absolute',
           inset: 0,
-          borderRadius: '18%',
+          borderRadius: '22%',
           transform: 'rotateX(30deg) rotateY(-18deg) translateZ(8px)',
           transformOrigin: 'center center',
           backgroundColor: bodyColor,
@@ -269,7 +269,7 @@ export default function Tile({
           </>
         )}
         {isLock && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 158, 11, 0.2)', borderRadius: '18%' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 158, 11, 0.2)', borderRadius: '22%' }}>
             <span style={{ fontSize: '24px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>🔒</span>
           </div>
         )}
@@ -283,10 +283,10 @@ export default function Tile({
           bottom: '8%',
           right: '-18px',
           width: '18px',
-          borderRadius: '0 18% 18% 0',
+          borderRadius: '0 22% 22% 0',
           transform: 'rotateY(90deg) translateZ(0px)',
           transformOrigin: 'left center',
-          filter: 'brightness(0.55)',
+          filter: 'brightness(0.75)',
           backgroundColor: bodyColor,
           boxSizing: 'border-box',
           overflow: 'hidden'
@@ -303,10 +303,10 @@ export default function Tile({
           right: '8%',
           bottom: '-12px',
           height: '12px',
-          borderRadius: '0 0 18% 18%',
+          borderRadius: '0 0 22% 22%',
           transform: 'rotateX(-90deg) translateZ(0px)',
           transformOrigin: 'top center',
-          filter: 'brightness(0.40)',
+          filter: 'brightness(0.55)',
           backgroundColor: bodyColor,
           boxSizing: 'border-box',
           overflow: 'hidden'

@@ -144,14 +144,16 @@ export default function Tile({
     ? !document.documentElement.getAttribute('data-theme')?.includes('light')
     : true;
 
-  if (!cell.face && cell.type === 'EMPTY') {
+  if (cell.state === 'EMPTY' || cell.type === 'NONE') {
     return <div style={{ width: '100%', height: '100%' }} />;
   }
 
-  const isStone = cell.type === 'BLOCKER' && cell.blockerType === 'STONE';
-  const isIce = cell.type === 'BLOCKER' && cell.blockerType === 'ICE';
-  const isLock = cell.type === 'BLOCKER' && cell.blockerType === 'LOCK';
-  const isDie = cell.type === 'DIE' || isLock;
+  const isStone = cell.type === 'STONE';
+  const isIce = cell.type === 'ICE' || cell.state === 'FROZEN';
+  const isLock = cell.state === 'LOCKED';
+  const isDie = cell.face !== null && cell.type !== 'STONE' &&
+           cell.type !== 'ICE' && cell.type !== 'LOCK' &&
+           cell.type !== 'NONE';
 
   const faceValue = cell.face || 1;
   const faceIdx = faceValue - 1;
@@ -230,7 +232,7 @@ export default function Tile({
         height: '100%',
         touchAction: 'none',
         cursor: pointerEvents === 'auto' ? 'pointer' : 'default',
-        pointerEvents: pointerEvents as any,
+        pointerEvents: pointerEvents as React.CSSProperties['pointerEvents'],
         boxShadow: shadow,
         borderRadius: '18%',
       }}

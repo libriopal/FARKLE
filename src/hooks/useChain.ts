@@ -3,7 +3,7 @@
  * @description React hook for capturing pointer drag events to build a scoring chain.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GridPos, Cell } from '../types/game';
 import { GAME_CONSTANTS } from '../types/game';
 import { isDieTile } from '../utils/gridUtils';
@@ -98,17 +98,26 @@ export function useChain({ grid, onCommit, disabled = false }: UseChainOptions) 
     [grid, disabled]
   );
 
+  const pendingCommit = useRef<GridPos[] | null>(null);
+
   const endChain = useCallback(() => {
     if (!isDragging.current) return;
 
     isDragging.current = false;
     setChain((prev) => {
       if (prev.length > 0) {
-        onCommit(prev);
+        pendingCommit.current = prev;
       }
       return [];
     });
-  }, [onCommit]);
+  }, []);
+
+  useEffect(() => {
+    if (pendingCommit.current) {
+      onCommit(pendingCommit.current);
+      pendingCommit.current = null;
+    }
+  });
 
   const cancelChain = useCallback(() => {
     isDragging.current = false;

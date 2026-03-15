@@ -151,9 +151,10 @@ export default function Tile({
   const isStone = cell.type === 'STONE';
   const isIce = cell.type === 'ICE' || cell.state === 'FROZEN';
   const isLock = cell.state === 'LOCKED';
-  const isDie = cell.face !== null && cell.type !== 'STONE' &&
-           cell.type !== 'ICE' && cell.type !== 'LOCK' &&
-           cell.type !== 'NONE';
+  const isDie = cell.face !== null &&
+    cell.type !== 'STONE' &&
+    cell.type !== 'ICE' &&
+    cell.type !== 'LOCK';
 
   const faceValue = cell.face || 1;
   const faceIdx = faceValue - 1;

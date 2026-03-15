@@ -52,7 +52,7 @@ export default function Grid({
   isFarkleAnim
 }: GridProps) {
   const size = grid.length;
-  const tileSize = Math.min(72, Math.floor(560 / size));
+  const tileSize = Math.min(88, Math.floor((window.innerWidth - 16) / size));
 
   const { chain, startChain, handleEnter, endChain } = useChain({
     grid,
@@ -115,8 +115,8 @@ export default function Grid({
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${size}, ${tileSize}px)`,
-            gap: '4px',
-            padding: '8px',
+            gap: '2px',
+            padding: '4px',
             backgroundColor: 'rgba(10,10,15,0.9)',
             borderRadius: '16px',
             border: '1px solid rgba(255,255,255,0.08)',

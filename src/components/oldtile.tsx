@@ -21,19 +21,19 @@ interface TileProps {
   onPointerUp: () => void;
 }
 
-const DARK_BODY = ['#1c0a0a', '#1c1005', '#1a1800', '#0a1c0a', '#050a1c', '#100518'];
+const DARK_BODY = ['#1a1010', '#1a1208', '#181610', '#0e1a10', '#0a1018', '#120a1a'];
 const DARK_PIP = ['#ff2244', '#ff8800', '#ffdd00', '#00ff88', '#0099ff', '#cc44ff'];
-const LIGHT_BODY = ['#e53535', '#f06000', '#d4a000', '#18a83a', '#1a5fd4', '#7c22e8'];
+const LIGHT_BODY = ['#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#2563eb', '#7c3aed'];
 
 const DARK_GLOWS = [
-  '0 16px 28px #ff000066, 0 6px 14px #ff224444, 0 0 18px #ff224455',
-  '0 16px 28px #ff660055, 0 6px 14px #ff880033, 0 0 18px #ff880055',
-  '0 16px 28px #ffaa0055, 0 6px 14px #ffdd0033, 0 0 22px #ffdd0055',
-  '0 16px 28px #00660044, 0 6px 14px #00ff8833, 0 0 18px #00ff8855',
-  '0 16px 28px #0033ff55, 0 6px 14px #0099ff33, 0 0 22px #0099ff55',
-  '0 16px 28px #6600ff55, 0 6px 14px #cc44ff33, 0 0 18px #cc44ff55, -2px 0 10px #ff008844, 2px 0 10px #0000ff44'
+  '0 12px 24px #ff000055, 0 0 16px #ff224488, 0 0 32px #ff000044, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #ff660044, 0 0 16px #ff880088, 0 0 32px #ff660033, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #ffaa0044, 0 0 20px #ffdd0088, 0 0 40px #ffaa0033, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #00aa4444, 0 0 14px #00ff8888, 0 0 28px #00ff4433, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #0044ff44, 0 0 22px #0088ff88, 0 0 44px #0055ff33, 0 4px 8px rgba(0,0,0,0.9)',
+  '0 12px 24px #6600ff44, 0 0 16px #aa00ff88, 0 0 32px #ff00ff33, -3px 0 12px #ff008844, 3px 0 12px #0000ff44, 0 4px 8px rgba(0,0,0,0.9)'
 ];
-const LIGHT_SHADOW = '8px 14px 22px rgba(0,0,0,0.32), 3px 5px 8px rgba(0,0,0,0.22)';
+const LIGHT_SHADOW = '6px 10px 16px rgba(0,0,0,0.28), 2px 4px 6px rgba(0,0,0,0.15)';
 
 /**
  * Renders a single circular pip.
@@ -52,8 +52,9 @@ function CirclePip({ color, size, glowing }: { color: string; size: number; glow
           width: size,
           height: size,
           borderRadius: '50%',
-          backgroundColor: color,
-          boxShadow: `0 0 ${size * 0.8}px ${color}, 0 0 ${size * 2.0}px ${color}99, 0 0 ${size * 3.5}px ${color}44, inset 0 0 ${size * 0.4}px rgba(255,255,255,0.7)`,
+          border: `2px solid ${color}`,
+          backgroundColor: 'transparent',
+          boxShadow: `0 0 ${size}px ${color}, 0 0 ${size * 1.5}px ${color}88, inset 0 0 ${size / 3}px ${color}`,
           boxSizing: 'border-box'
         }}
       />
@@ -65,8 +66,8 @@ function CirclePip({ color, size, glowing }: { color: string; size: number; glow
         width: size,
         height: size,
         borderRadius: '50%',
-        backgroundColor: '#1a1a1a',
-        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.7), 0 1px 1px rgba(255,255,255,0.25)',
+        backgroundColor: '#111111',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0px rgba(255,255,255,0.15)',
         boxSizing: 'border-box'
       }}
     />
@@ -85,7 +86,7 @@ function CirclePip({ color, size, glowing }: { color: string; size: number; glow
  * @returns {JSX.Element} The rendered pip layout.
  */
 function PipLayout({ face, color, glowing, scale, isSide = false }: { face: number; color: string; glowing: boolean; scale: number; isSide?: boolean }) {
-  const pipSize = isSide ? 5 * scale : 9 * scale;
+  const pipSize = (isSide ? 6 : 10) * scale;
   
   const pips = Array(9).fill(false);
   if (face === 1) {
@@ -110,7 +111,7 @@ function PipLayout({ face, color, glowing, scale, isSide = false }: { face: numb
         gridTemplateRows: 'repeat(3, 1fr)',
         width: '100%',
         height: '100%',
-        padding: isSide ? '2px' : `${10 * scale}px`,
+        padding: isSide ? '2px' : `${12 * scale}px`,
         boxSizing: 'border-box',
       }}
     >
@@ -161,73 +162,79 @@ const Tile = memo(function Tile({
   let pipColor = '';
   let shadow = '';
   let edgeHighlight = '';
-  let topFaceBackground = '';
 
-  if (isDie || isLock) {
+  if (isDie) {
     if (isDark) {
       bodyColor = DARK_BODY[faceIdx];
       pipColor = DARK_PIP[faceIdx];
       shadow = DARK_GLOWS[faceIdx];
-      edgeHighlight = 'rgba(255,255,255,0.14)';
-      topFaceBackground = `radial-gradient(ellipse at center, ${pipColor}18 0%, ${pipColor}08 40%, transparent 70%), ${bodyColor}`;
+      edgeHighlight = 'rgba(255,255,255,0.15)';
     } else {
       bodyColor = LIGHT_BODY[faceIdx];
       pipColor = '#111111';
       shadow = LIGHT_SHADOW;
-      edgeHighlight = 'rgba(255,255,255,0.55)';
-      topFaceBackground = `linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, transparent 65%), ${bodyColor}`;
+      edgeHighlight = 'rgba(255,255,255,0.6)';
     }
   } else if (isStone) {
-    bodyColor = isDark ? '#181818' : '#8a9299';
-    shadow = isDark ? '0 4px 12px rgba(0,0,0,0.9), 0 0 8px rgba(255,255,255,0.12)' : '5px 9px 14px rgba(0,0,0,0.28)';
-    edgeHighlight = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.35)';
-    topFaceBackground = bodyColor;
+    bodyColor = isDark ? '#1a1a1a' : '#9ca3af';
+    shadow = isDark ? '0 0 8px rgba(255,255,255,0.2)' : LIGHT_SHADOW;
+    edgeHighlight = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)';
   } else if (isIce) {
-    bodyColor = isDark ? '#040e16' : '#ddf4ff';
-    shadow = isDark ? '0 0 18px #00ffff66, 0 0 36px #00ffff22, 0 8px 16px rgba(0,0,0,0.8)' : '5px 9px 14px rgba(0,0,0,0.18), 0 0 10px rgba(100,210,255,0.35)';
-    edgeHighlight = isDark ? 'rgba(0,255,255,0.35)' : 'rgba(100,200,255,0.55)';
-    topFaceBackground = bodyColor;
+    bodyColor = isDark ? '#030d14' : '#e0f2fe';
+    shadow = isDark ? '0 0 12px #00ffff66' : LIGHT_SHADOW;
+    edgeHighlight = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)';
   }
 
   let containerScale = 1;
   let containerOpacity = 1;
   let containerFilter = 'none';
-  let topFaceBorder = 'none';
+  let topFaceOutline = 'none';
 
   if (isChained) {
-    containerScale = 1.12;
-    shadow = `${shadow}, 0 0 0 3px rgba(255,255,255,0.95), 0 0 20px rgba(255,255,255,0.2)`;
+    containerScale = 1.1;
+    if (isDark) {
+      shadow = `${shadow}, 0 0 20px rgba(255,255,255,0.3)`;
+      topFaceOutline = '2px solid rgba(255,255,255,0.8)';
+    } else {
+      shadow = `0 10px 20px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2)`;
+      topFaceOutline = '2px solid rgba(255,255,255,0.8)';
+    }
   } else if (isAtCap) {
-    containerOpacity = 0.25;
-    containerFilter = 'saturate(0.12) brightness(0.65)';
+    containerOpacity = 0.3;
+    containerFilter = 'saturate(0.2)';
+  }
+
+  if (isLock) {
+    if (isDark) {
+      shadow = `0 4px 8px rgba(0,0,0,0.8), 0 0 8px ${DARK_PIP[faceIdx]}88`;
+    }
   }
 
   if (isStone) {
-    topFaceBorder = cell.health === 1 ? '2px dashed rgba(140,140,140,0.55)' : '2px solid rgba(90,90,90,0.6)';
+    topFaceOutline = cell.health === 1 ? '2px dashed #444' : '2px solid #333';
   } else if (isIce) {
-    topFaceBorder = isDark ? '1px solid rgba(0,255,255,0.35)' : '1px solid rgba(100,200,255,0.55)';
+    topFaceOutline = '1px solid #00ffff44';
   }
 
   const pointerEvents = (isStone || isIce) ? 'none' : 'auto';
 
   return (
     <motion.div
-      key={cell.id}
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: containerScale, opacity: containerOpacity, filter: containerFilter }}
       exit={{ scale: 0, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 22 }}
       style={{
         position: 'relative',
         transformStyle: 'preserve-3d',
-        perspective: '500px',
+        perspective: '600px',
         width: '100%',
         height: '100%',
         touchAction: 'none',
         cursor: pointerEvents === 'auto' ? 'pointer' : 'default',
         pointerEvents: pointerEvents as React.CSSProperties['pointerEvents'],
         boxShadow: shadow,
-        borderRadius: '24%',
+        borderRadius: '22%',
       }}
       onPointerDown={(e) => onPointerDown(e, row, col)}
       onPointerEnter={() => onPointerEnter(row, col)}
@@ -238,31 +245,31 @@ const Tile = memo(function Tile({
         style={{
           position: 'absolute',
           inset: 0,
-          borderRadius: '24%',
-          transform: 'rotateX(28deg) rotateY(-16deg) translateZ(6px)',
+          borderRadius: '22%',
+          transform: 'rotateX(30deg) rotateY(-18deg) translateZ(8px)',
           transformOrigin: 'center center',
-          background: topFaceBackground,
+          backgroundColor: bodyColor,
           borderTop: `1px solid ${edgeHighlight}`,
           borderLeft: `1px solid ${edgeHighlight}`,
-          border: topFaceBorder !== 'none' ? topFaceBorder : undefined,
-          overflow: 'hidden',
+          outline: topFaceOutline !== 'none' ? topFaceOutline : undefined,
+          outlineOffset: isChained ? '2px' : '0px',
           boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
         }}
       >
-        {(isDie || isLock) && <PipLayout face={faceValue} color={pipColor} glowing={isDark} scale={1} />}
-        {isStone && <div style={{ color: isDark ? 'white' : '#333', fontWeight: 'bold', fontSize: '22px' }}>{cell.health}</div>}
+        {isDie && <PipLayout face={faceValue} color={pipColor} glowing={isDark} scale={1} />}
+        {isStone && <div style={{ color: isDark ? '#fff' : '#000', fontWeight: 'bold', fontSize: '24px' }}>{cell.health}</div>}
         {isIce && (
           <>
-            <div style={{ fontSize: '22px' }}>❄️</div>
-            <div style={{ position: 'absolute', top: '4px', right: '6px', fontSize: '11px', fontWeight: 'bold', color: isDark ? '#00ffff' : '#0099cc' }}>{faceValue}</div>
+            <div style={{ fontSize: '24px' }}>❄️</div>
+            <div style={{ position: 'absolute', top: '4px', right: '6px', fontSize: '12px', fontWeight: 'bold', color: isDark ? '#fff' : '#000' }}>{faceValue}</div>
           </>
         )}
         {isLock && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 158, 11, 0.18)' }}>
-            <span style={{ fontSize: '22px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>🔒</span>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 158, 11, 0.2)', borderRadius: '22%' }}>
+            <span style={{ fontSize: '24px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>🔒</span>
           </div>
         )}
       </div>
@@ -271,40 +278,40 @@ const Tile = memo(function Tile({
       <div
         style={{
           position: 'absolute',
-          top: '6%',
-          bottom: '6%',
-          right: '-16px',
-          width: '16px',
-          borderRadius: '0 24% 24% 0',
-          transform: 'rotateY(90deg) translateZ(0)',
+          top: '8%',
+          bottom: '8%',
+          right: '-18px',
+          width: '18px',
+          borderRadius: '0 22% 22% 0',
+          transform: 'rotateY(90deg) translateZ(0px)',
           transformOrigin: 'left center',
-          filter: isDark ? 'brightness(0.45)' : 'brightness(0.58)',
+          filter: 'brightness(0.75)',
           backgroundColor: bodyColor,
-          overflow: 'hidden',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          overflow: 'hidden'
         }}
       >
-        {(isDie || isLock) && <PipLayout face={7 - faceValue} color={pipColor} glowing={isDark} scale={0.6} isSide />}
+        {isDie && <PipLayout face={7 - faceValue} color={pipColor} glowing={isDark} scale={0.6} isSide />}
       </div>
 
       {/* FRONT-BOTTOM FACE */}
       <div
         style={{
           position: 'absolute',
-          left: '6%',
-          right: '6%',
-          bottom: '-10px',
-          height: '10px',
-          borderRadius: '0 0 24% 24%',
-          transform: 'rotateX(-90deg) translateZ(0)',
+          left: '8%',
+          right: '8%',
+          bottom: '-12px',
+          height: '12px',
+          borderRadius: '0 0 22% 22%',
+          transform: 'rotateX(-90deg) translateZ(0px)',
           transformOrigin: 'top center',
-          filter: isDark ? 'brightness(0.32)' : 'brightness(0.44)',
+          filter: 'brightness(0.55)',
           backgroundColor: bodyColor,
-          overflow: 'hidden',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          overflow: 'hidden'
         }}
       >
-        {(isDie || isLock) && <PipLayout face={Math.max(1, (faceValue + 2) % 6)} color={pipColor} glowing={isDark} scale={0.4} isSide />}
+        {isDie && <PipLayout face={Math.max(1, (faceValue + 2) % 6)} color={pipColor} glowing={isDark} scale={0.4} isSide />}
       </div>
 
       {/* CHAIN BADGE */}
@@ -312,20 +319,20 @@ const Tile = memo(function Tile({
         <div
           style={{
             position: 'absolute',
-            top: '-8px',
-            right: '-8px',
-            width: '22px',
-            height: '22px',
+            top: '-6px',
+            right: '-6px',
+            width: '20px',
+            height: '20px',
             borderRadius: '50%',
             backgroundColor: 'white',
             color: 'black',
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 'bold',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 10,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.7)'
+            boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
           }}
         >
           {chainIndex + 1}

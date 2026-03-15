@@ -234,68 +234,42 @@ export function useCascadeLoop(
   dispatch: React.Dispatch<Action>,
   weights: [number, number, number, number, number, number]
 ): void {
-  const gridRef = useRef<Cell[][]>(grid);
-  const weightsRef = useRef(weights);
   const rngRef = useRef(Math.random);
-  const phaseRef = useRef(phase);
-  phaseRef.current = phase;
-
-  // Only sync gridRef when NOT cascading
-  // During REFILLING the cascade tick owns gridRef
-  if (phase !== 'REFILLING') {
-    gridRef.current = grid;
-  }
-  weightsRef.current = weights;
 
   useEffect(() => {
     if (phase !== 'REFILLING') return;
 
-    let running = true;
-
-    const tick = () => {
-      if (!running) return;
-
-      const g = gridRef.current;
-      const w = weightsRef.current;
-
-      // Step 1: gravity
-      const { grid: afterGravity, changed } = stepGravity(g);
+    const timer = setTimeout(() => {
+      // Step 1: apply one gravity step
+      const { grid: afterGravity, changed } = stepGravity(grid);
       if (changed) {
-        gridRef.current = afterGravity;
         dispatch({ type: 'STEP_CASCADE', grid: afterGravity });
-        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      // Step 2: check if more gravity needed
-      if (hasEmptyBelow(g)) {
-        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
+      // Step 2: if still empty cells below, wait
+      if (hasEmptyBelow(grid)) {
+        dispatch({ type: 'STEP_CASCADE', grid });
         return;
       }
 
-      // Step 3: spawn new tiles
-      const { grid: afterSpawn, changed: spawned } = spawnTiles(g, w, rngRef.current);
+      // Step 3: spawn new tiles at top
+      const { grid: afterSpawn, changed: spawned } = spawnTiles(
+        grid, weights, rngRef.current
+      );
       if (spawned) {
-        const normalized = normalizeTiles(afterSpawn);
-        gridRef.current = normalized;
-        dispatch({ type: 'STEP_CASCADE', grid: normalized });
-        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
+        dispatch({ type: 'STEP_CASCADE', grid: normalizeTiles(afterSpawn) });
         return;
       }
 
-      // Step 4: grid is stable
+      // Step 4: stable — done
       dispatch({ type: 'REFILL_COMPLETE' });
-    };
 
-    // Start cascade after first tick delay
-    const timeout = setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
+    }, GAME_CONSTANTS.CASCADE_MS);
 
-    return () => {
-      running = false;
-      clearTimeout(timeout);
-    };
+    return () => clearTimeout(timer);
 
-  }, [phase, dispatch]);
+  }, [phase, grid, dispatch, weights]);
 }
 
 /**

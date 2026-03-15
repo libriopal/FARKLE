@@ -161,7 +161,7 @@ export default function Grid({
 
       {/* Bomb overlays */}
       {activeBombs.map(bomb => (
-        <BombOverlay key={bomb.id} bomb={bomb} tileSize={tileSize} />
+        <BombOverlay key={bomb.id} bomb={bomb} tileSize={tileSize} isDark={isDark} />
       ))}
 
       {/* Score popups */}

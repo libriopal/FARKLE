@@ -4,15 +4,16 @@
 
 import { memo, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import type { Bomb as BombType } from '../types/game';
+import type { ActiveBomb } from '../types/game';
+import { GAME_CONSTANTS } from '../types/game';
 
 interface BombProps {
-  bomb: BombType;
+  bomb: ActiveBomb;
   tileSize: number;
   isDark: boolean;
 }
 
-const Bomb = memo(function Bomb({ bomb, tileSize, isDark }: BombProps) {
+export default function BombOverlay({ bomb, tileSize, isDark }: BombProps) {
   const [flash, setFlash] = useState(false);
 
   useEffect(() => {
@@ -26,8 +27,8 @@ const Bomb = memo(function Bomb({ bomb, tileSize, isDark }: BombProps) {
     }
   }, [bomb.fuseMs]);
 
-  const progress = bomb.fuseMs / bomb.maxFuseMs;
-  const isDanger = bomb.fuseMs <= 3000;
+  const progress = Math.max(0, Math.min(1, bomb.fuseMs / GAME_CONSTANTS.FUSE_MS));
+  const isDanger = bomb.fuseMs <= 1000;
   
   const sphereSize = tileSize * 0.7;
   const fuseHeight = tileSize * 0.2;
@@ -131,22 +132,7 @@ const Bomb = memo(function Bomb({ bomb, tileSize, isDark }: BombProps) {
             />
           )}
         </div>
-
-        {/* FACE NUMBER */}
-        <div
-          style={{
-            position: 'absolute',
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: '10px',
-            fontWeight: 900,
-            zIndex: 2,
-          }}
-        >
-          {bomb.face}
-        </div>
       </div>
     </motion.div>
   );
-});
-
-export default Bomb;
+}

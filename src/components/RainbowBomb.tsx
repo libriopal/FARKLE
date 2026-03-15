@@ -4,16 +4,18 @@
 
 import { memo, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import type { Bomb as BombType, DieFace } from '../types/game';
+import type { ActiveBomb, DieColor } from '../types/game';
+import { GAME_CONSTANTS } from '../types/game';
 
 interface RainbowBombProps {
-  bomb: BombType;
+  bomb: ActiveBomb;
   tileSize: number;
   isDark: boolean;
-  onSelectColor: (bombId: string, face: DieFace) => void;
+  isRainmaker: boolean;
+  onColorChosen?: (color: DieColor) => void;
 }
 
-const RainbowBomb = memo(function RainbowBomb({ bomb, tileSize, isDark, onSelectColor }: RainbowBombProps) {
+export default function RainbowBomb({ bomb, tileSize, isDark, isRainmaker, onColorChosen }: RainbowBombProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [flash, setFlash] = useState(false);
 
@@ -28,8 +30,8 @@ const RainbowBomb = memo(function RainbowBomb({ bomb, tileSize, isDark, onSelect
     }
   }, [bomb.fuseMs]);
 
-  const progress = bomb.fuseMs / bomb.maxFuseMs;
-  const isDanger = bomb.fuseMs <= 3000;
+  const progress = Math.max(0, Math.min(1, bomb.fuseMs / GAME_CONSTANTS.FUSE_MS));
+  const isDanger = bomb.fuseMs <= 1000;
   
   const sphereSize = tileSize * 0.7;
   const fuseHeight = tileSize * 0.2;
@@ -153,20 +155,6 @@ const RainbowBomb = memo(function RainbowBomb({ bomb, tileSize, isDark, onSelect
             />
           )}
         </div>
-
-        {/* FACE NUMBER */}
-        <div
-          style={{
-            position: 'absolute',
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: '10px',
-            fontWeight: 900,
-            zIndex: 2,
-            pointerEvents: 'none',
-          }}
-        >
-          {bomb.face}
-        </div>
       </motion.div>
 
       {/* COLOR PICKER */}
@@ -188,35 +176,32 @@ const RainbowBomb = memo(function RainbowBomb({ bomb, tileSize, isDark, onSelect
             zIndex: 40,
           }}
         >
-          {([1, 2, 3, 4, 5, 6] as DieFace[]).map(face => (
-            <div
-              key={face}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectColor(bomb.id, face);
-                setShowPicker(false);
-              }}
-              style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                background: isDark ? '#333' : '#eee',
-                color: isDark ? '#fff' : '#000',
-                fontWeight: 'bold',
-                fontSize: '12px',
-              }}
-            >
-              {face}
-            </div>
-          ))}
+          {(['RED','ORANGE','YELLOW','GREEN','BLUE','PURPLE'] as DieColor[]).map(color => {
+            const hex: Record<DieColor,string> = {
+              RED:'#ef4444', ORANGE:'#f97316', YELLOW:'#facc15',
+              GREEN:'#4ade80', BLUE:'#60a5fa', PURPLE:'#a855f7'
+            };
+            return (
+              <div
+                key={color}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isRainmaker) onColorChosen?.(color);
+                  setShowPicker(false);
+                }}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '4px',
+                  backgroundColor: hex[color],
+                  cursor: isRainmaker ? 'pointer' : 'default',
+                  opacity: isRainmaker ? 1 : 0.4,
+                }}
+              />
+            );
+          })}
         </div>
       )}
     </motion.div>
   );
-});
-
-export default RainbowBomb;
+}

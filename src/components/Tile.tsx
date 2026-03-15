@@ -172,7 +172,7 @@ export default function Tile({
       edgeHighlight = 'rgba(255,255,255,0.15)';
     } else {
       bodyColor = LIGHT_BODY[faceIdx];
-      pipColor = 'rgba(0,0,0,0.8)';
+      pipColor = '#111111';
       shadow = LIGHT_SHADOW;
       edgeHighlight = 'rgba(255,255,255,0.6)';
     }
@@ -247,7 +247,7 @@ export default function Tile({
           position: 'absolute',
           inset: 0,
           borderRadius: '18%',
-          transform: 'rotateX(25deg) rotateY(-15deg) translateZ(6px)',
+          transform: 'rotateX(30deg) rotateY(-18deg) translateZ(8px)',
           transformOrigin: 'center center',
           backgroundColor: bodyColor,
           borderTop: `1px solid ${edgeHighlight}`,
@@ -281,8 +281,8 @@ export default function Tile({
           position: 'absolute',
           top: '8%',
           bottom: '8%',
-          right: '-14px',
-          width: '14px',
+          right: '-18px',
+          width: '18px',
           borderRadius: '0 18% 18% 0',
           transform: 'rotateY(90deg) translateZ(0px)',
           transformOrigin: 'left center',
@@ -301,8 +301,8 @@ export default function Tile({
           position: 'absolute',
           left: '8%',
           right: '8%',
-          bottom: '-10px',
-          height: '10px',
+          bottom: '-12px',
+          height: '12px',
           borderRadius: '0 0 18% 18%',
           transform: 'rotateX(-90deg) translateZ(0px)',
           transformOrigin: 'top center',

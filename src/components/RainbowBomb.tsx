@@ -1,233 +1,222 @@
 /**
  * @file src/components/RainbowBomb.tsx
- * @description Renders the Rainbow Bomb overlay with cycling color animation and Rainmaker color picker.
  */
 
-import { useState, useEffect } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import type { ActiveBomb, DieColor } from '../types/game';
-import { GAME_CONSTANTS } from '../types/game';
+import type { Bomb as BombType, DieFace } from '../types/game';
 
-const COLORS: DieColor[] = ['RED', 'ORANGE', 'YELLOW', 'GREEN', 'BLUE', 'PURPLE'];
-const CYCLE_MS = 300;
-
-const COLOR_HEX: Record<DieColor, string> = {
-  RED: '#ef4444',
-  ORANGE: '#f97316',
-  YELLOW: '#facc15',
-  GREEN: '#4ade80',
-  BLUE: '#60a5fa',
-  PURPLE: '#a855f7',
-};
-
-interface Props {
-  bomb: ActiveBomb;
+interface RainbowBombProps {
+  bomb: BombType;
   tileSize: number;
-  isRainmaker: boolean;
-  onColorChosen?: (color: DieColor) => void;
+  isDark: boolean;
+  onSelectColor: (bombId: string, face: DieFace) => void;
 }
 
-/**
- * Renders a Rainbow Bomb overlay that cycles colors.
- * If the player is the Rainmaker, it provides a color picker to lock in a color.
- *
- * @param {Props} props - The component props.
- * @param {ActiveBomb} props.bomb - The active bomb data.
- * @param {number} props.tileSize - The size of each tile in pixels.
- * @param {boolean} props.isRainmaker - Whether the current player is the Rainmaker.
- * @param {(color: DieColor) => void} [props.onColorChosen] - Callback fired when the Rainmaker chooses a color.
- * @returns {JSX.Element} The rendered RainbowBomb component.
- */
-export default function RainbowBomb({ bomb, tileSize, isRainmaker, onColorChosen }: Props) {
-  const gap = 4;
-  const padding = 8;
-  const left = padding + bomb.col * (tileSize + gap);
-  const top = padding + bomb.row * (tileSize + gap);
-
-  const [cycleIdx, setCycleIdx] = useState(0);
-  const [chosen, setChosen] = useState<DieColor | null>(null);
+const RainbowBomb = memo(function RainbowBomb({ bomb, tileSize, isDark, onSelectColor }: RainbowBombProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [flash, setFlash] = useState(false);
 
   useEffect(() => {
-    if (chosen !== null) return;
-    const interval = setInterval(() => {
-      setCycleIdx((i) => (i + 1) % COLORS.length);
-    }, CYCLE_MS);
-    return () => clearInterval(interval);
-  }, [chosen]);
+    if (bomb.fuseMs <= 3000 && bomb.fuseMs > 0) {
+      const interval = setInterval(() => {
+        setFlash(f => !f);
+      }, Math.max(100, bomb.fuseMs / 10));
+      return () => clearInterval(interval);
+    } else {
+      setFlash(false);
+    }
+  }, [bomb.fuseMs]);
 
-  const currentColor = chosen ?? COLORS[cycleIdx];
-  const currentHex = COLOR_HEX[currentColor];
+  const progress = bomb.fuseMs / bomb.maxFuseMs;
+  const isDanger = bomb.fuseMs <= 3000;
+  
+  const sphereSize = tileSize * 0.7;
+  const fuseHeight = tileSize * 0.2;
 
-  const pct = Math.max(0, Math.min(1, bomb.fuseMs / GAME_CONSTANTS.FUSE_MS));
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - pct);
+  const shadow = isDark
+    ? '0 8px 20px rgba(0,0,0,0.9), 0 0 24px rgba(180,100,255,0.4)'
+    : '4px 8px 16px rgba(0,0,0,0.4), 0 0 20px rgba(200,100,255,0.3)';
 
-  function handleChoose(c: DieColor): void {
-    if (!isRainmaker) return;
-    setChosen(c);
-    onColorChosen?.(c);
-  }
+  const filter = isDark ? 'saturate(1.2) brightness(0.85)' : 'saturate(1.4) brightness(1.1)';
 
   return (
-    <div
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0, filter: 'brightness(2) blur(10px)' }}
       style={{
         position: 'absolute',
-        left,
-        top,
+        top: bomb.row * tileSize,
+        left: bomb.col * tileSize,
         width: tileSize,
         height: tileSize,
-        pointerEvents: 'none',
-        zIndex: 20,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        zIndex: showPicker ? 30 : 20,
       }}
     >
-      {/* CYCLING COLOR OVERLAY */}
-      <motion.div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: '10px',
-          backgroundColor: currentHex,
-          opacity: 0.7,
-        }}
-        animate={{ scale: [1, 1.06, 1] }}
-        transition={{ duration: CYCLE_MS / 1000, repeat: Infinity }}
-      />
-
-      {/* FUSE RING */}
+      {/* COUNTDOWN RING */}
       <svg
-        viewBox="0 0 44 44"
+        width={tileSize * 0.9}
+        height={tileSize * 0.9}
         style={{
           position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
           transform: 'rotate(-90deg)',
+          pointerEvents: 'none',
         }}
       >
         <circle
-          cx="22"
-          cy="22"
-          r={radius}
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth="3"
+          cx={tileSize * 0.45}
+          cy={tileSize * 0.45}
+          r={tileSize * 0.4}
           fill="none"
+          stroke={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+          strokeWidth="4"
         />
         <circle
-          cx="22"
-          cy="22"
-          r={radius}
+          cx={tileSize * 0.45}
+          cy={tileSize * 0.45}
+          r={tileSize * 0.4}
           fill="none"
-          strokeWidth="3"
-          strokeLinecap="round"
-          stroke={currentHex}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
+          stroke={isDanger ? '#ff4444' : (isDark ? '#fff' : '#000')}
+          strokeWidth="4"
+          strokeDasharray={Math.PI * 2 * (tileSize * 0.4)}
+          strokeDashoffset={Math.PI * 2 * (tileSize * 0.4) * (1 - progress)}
+          style={{ transition: 'stroke-dashoffset 0.1s linear' }}
         />
       </svg>
 
-      {/* RAINBOW ICON + TIMER */}
-      <div
+      {/* SPHERE */}
+      <motion.div
+        onClick={() => setShowPicker(!showPicker)}
         style={{
-          position: 'absolute',
+          position: 'relative',
+          width: sphereSize,
+          height: sphereSize,
+          borderRadius: '50%',
+          background: 'conic-gradient(from 0deg, #ff0000, #ff8800, #ffdd00, #00ff88, #0099ff, #cc44ff, #ff0088, #ff0000)',
+          boxShadow: shadow,
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 2,
+          cursor: 'pointer',
+          filter: flash ? `brightness(1.5) drop-shadow(0 0 10px red) ${filter}` : filter,
         }}
+        animate={{ filter: [`hue-rotate(0deg) ${filter}`, `hue-rotate(360deg) ${filter}`] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
       >
-        <div style={{ fontSize: '20px', lineHeight: 1 }}>🌈</div>
-        <div
-          style={{
-            color: 'white',
-            fontSize: '10px',
-            fontWeight: 900,
-            marginTop: '2px',
-            textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-          }}
-        >
-          {(bomb.fuseMs / 1000).toFixed(1)}s
-        </div>
-        {chosen && (
-          <div
-            style={{
-              color: currentHex,
-              fontSize: '9px',
-              fontWeight: 'bold',
-              marginTop: '2px',
-              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-            }}
-          >
-            {chosen}
-          </div>
-        )}
-      </div>
-
-      {/* RAINMAKER COLOR PICKER */}
-      {isRainmaker && chosen === null && (
+        {/* SHINE OVERLAY */}
         <div
           style={{
             position: 'absolute',
-            bottom: 'calc(100% + 8px)',
+            width: '40%',
+            height: '40%',
+            top: '10%',
+            left: '15%',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* FUSE */}
+        <div
+          style={{
+            position: 'absolute',
+            top: -fuseHeight + 2,
             left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: '#111118',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '12px',
-            padding: '8px',
-            width: '168px',
-            pointerEvents: 'auto',
-            zIndex: 30,
-            boxShadow: '0 0 20px rgba(0,0,0,0.8)',
+            width: '3px',
+            height: fuseHeight,
+            background: 'linear-gradient(to top, #8b6914, #c8a020)',
+            borderRadius: '2px',
+            transform: 'translateX(-50%) rotate(15deg)',
+            transformOrigin: 'bottom center',
+            pointerEvents: 'none',
           }}
         >
-          <div
-            style={{
-              fontSize: '9px',
-              color: '#71717a',
-              textAlign: 'center',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              marginBottom: '6px',
-            }}
-          >
-            CHOOSE COLOR
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '4px',
-            }}
-          >
-            {COLORS.map((color) => (
-              <button
-                key={color}
-                onClick={() => handleChoose(color)}
-                style={{
-                  backgroundColor: COLOR_HEX[color],
-                  width: '100%',
-                  height: '24px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'white',
-                  fontSize: '9px',
-                  fontWeight: 900,
-                  pointerEvents: 'auto',
-                }}
-              >
-                {color.charAt(0)}
-              </button>
-            ))}
-          </div>
+          {/* SPARK */}
+          {bomb.fuseMs > 0 && (
+            <motion.div
+              animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
+              transition={{ duration: 0.15, repeat: Infinity }}
+              style={{
+                position: 'absolute',
+                top: -4,
+                left: -2.5,
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, #fff 0%, #ffdd00 40%, #ff8800 70%, transparent 100%)',
+              }}
+            />
+          )}
+        </div>
+
+        {/* FACE NUMBER */}
+        <div
+          style={{
+            position: 'absolute',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '10px',
+            fontWeight: 900,
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          {bomb.face}
+        </div>
+      </motion.div>
+
+      {/* COLOR PICKER */}
+      {showPicker && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            marginTop: '8px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '4px',
+            background: isDark ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.9)',
+            padding: '8px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            zIndex: 40,
+          }}
+        >
+          {([1, 2, 3, 4, 5, 6] as DieFace[]).map(face => (
+            <div
+              key={face}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectColor(bomb.id, face);
+                setShowPicker(false);
+              }}
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                background: isDark ? '#333' : '#eee',
+                color: isDark ? '#fff' : '#000',
+                fontWeight: 'bold',
+                fontSize: '12px',
+              }}
+            >
+              {face}
+            </div>
+          ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
-}
+});
+
+export default RainbowBomb;

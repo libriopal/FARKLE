@@ -162,6 +162,7 @@ const Tile = memo(function Tile({
   let shadow = '';
   let edgeHighlight = '';
   let topFaceBackground = '';
+  let topFaceBoxShadow = '';
 
   if (isDie || isLock) {
     if (isDark) {
@@ -178,13 +179,18 @@ const Tile = memo(function Tile({
       topFaceBackground = `linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, transparent 65%), ${bodyColor}`;
     }
   } else if (isStone) {
-    bodyColor = isDark ? '#181818' : '#8a9299';
-    shadow = isDark ? '0 4px 12px rgba(0,0,0,0.9), 0 0 8px rgba(255,255,255,0.12)' : '5px 9px 14px rgba(0,0,0,0.28)';
+    bodyColor = isDark ? '#1e2228' : '#c4b49a';
+    shadow = isDark ? '0 8px 18px rgba(0,0,0,0.9), 0 0 6px rgba(100,120,140,0.2)' : '6px 10px 16px rgba(0,0,0,0.3), 2px 4px 6px rgba(0,0,0,0.18)';
     edgeHighlight = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.35)';
-    topFaceBackground = bodyColor;
+    topFaceBackground = isDark
+      ? 'linear-gradient(135deg, #252b32 0%, #1a1e24 40%, #222830 70%, #161a20 100%)'
+      : 'linear-gradient(135deg, #d4c4aa 0%, #b8a48a 40%, #c8b898 70%, #a89878 100%)';
+    if (cell.health === 1) {
+      topFaceBoxShadow = isDark ? 'inset 2px 2px 4px rgba(0,0,0,0.8)' : 'inset 2px 2px 4px rgba(0,0,0,0.3), inset -1px -1px 3px rgba(255,255,255,0.1)';
+    }
   } else if (isIce) {
-    bodyColor = isDark ? '#040e16' : '#ddf4ff';
-    shadow = isDark ? '0 0 18px #00ffff66, 0 0 36px #00ffff22, 0 8px 16px rgba(0,0,0,0.8)' : '5px 9px 14px rgba(0,0,0,0.18), 0 0 10px rgba(100,210,255,0.35)';
+    bodyColor = isDark ? 'rgba(20,40,80,0.6)' : 'rgba(220,235,255,0.55)';
+    shadow = isDark ? '0 0 20px rgba(100,160,255,0.3), 0 8px 16px rgba(0,0,0,0.8)' : '0 4px 12px rgba(100,150,255,0.2), inset 0 1px 0 rgba(255,255,255,0.9)';
     edgeHighlight = isDark ? 'rgba(0,255,255,0.35)' : 'rgba(100,200,255,0.55)';
     topFaceBackground = bodyColor;
   }
@@ -193,6 +199,7 @@ const Tile = memo(function Tile({
   let containerOpacity = 1;
   let containerFilter = 'none';
   let topFaceBorder = 'none';
+  let topFaceBackdropFilter = 'none';
 
   if (isChained) {
     containerScale = 1.12;
@@ -203,12 +210,15 @@ const Tile = memo(function Tile({
   }
 
   if (isStone) {
-    topFaceBorder = cell.health === 1 ? '2px dashed rgba(140,140,140,0.55)' : '2px solid rgba(90,90,90,0.6)';
+    topFaceBorder = isDark ? (cell.health === 1 ? '2px dashed rgba(140,140,140,0.55)' : '2px solid rgba(90,90,90,0.6)') : (cell.health === 1 ? '2px dashed rgba(140,140,140,0.55)' : '2px solid rgba(90,90,90,0.6)');
   } else if (isIce) {
-    topFaceBorder = isDark ? '1px solid rgba(0,255,255,0.35)' : '1px solid rgba(100,200,255,0.55)';
+    topFaceBorder = isDark ? '1px solid rgba(100,160,255,0.3)' : '1px solid rgba(255,255,255,0.8)';
+    topFaceBackdropFilter = 'blur(4px)';
   }
 
   const pointerEvents = (isStone || isIce) ? 'none' : 'auto';
+
+  const chainColor = isDark ? 'rgba(80,80,80,0.8)' : 'rgba(150,150,150,0.7)';
 
   return (
     <motion.div
@@ -245,6 +255,8 @@ const Tile = memo(function Tile({
           borderTop: `1px solid ${edgeHighlight}`,
           borderLeft: `1px solid ${edgeHighlight}`,
           border: topFaceBorder !== 'none' ? topFaceBorder : undefined,
+          boxShadow: topFaceBoxShadow || undefined,
+          backdropFilter: topFaceBackdropFilter !== 'none' ? topFaceBackdropFilter : undefined,
           overflow: 'hidden',
           boxSizing: 'border-box',
           display: 'flex',
@@ -253,17 +265,45 @@ const Tile = memo(function Tile({
         }}
       >
         {(isDie || isLock) && <PipLayout face={faceValue} color={pipColor} glowing={isDark} scale={1} />}
-        {isStone && <div style={{ color: isDark ? 'white' : '#333', fontWeight: 'bold', fontSize: '22px' }}>{cell.health}</div>}
+        {isStone && <div style={{ color: isDark ? '#8090a0' : '#5a4030', fontWeight: 900, fontSize: '20px' }}>{cell.health}</div>}
         {isIce && (
           <>
-            <div style={{ fontSize: '22px' }}>❄️</div>
-            <div style={{ position: 'absolute', top: '4px', right: '6px', fontSize: '11px', fontWeight: 'bold', color: isDark ? '#00ffff' : '#0099cc' }}>{faceValue}</div>
+            <div style={{ color: isDark ? 'rgba(100,160,255,0.5)' : 'rgba(60,80,120,0.7)', fontSize: '18px', fontWeight: 900 }}>{faceValue}</div>
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 50%, transparent 100%)',
+              borderRadius: 'inherit',
+              pointerEvents: 'none'
+            }} />
           </>
         )}
         {isLock && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 158, 11, 0.18)' }}>
-            <span style={{ fontSize: '22px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>🔒</span>
-          </div>
+          <>
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: `repeating-linear-gradient(45deg, transparent 0px, transparent 6px, ${chainColor} 6px, ${chainColor} 8px)`
+            }} />
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: `repeating-linear-gradient(-45deg, transparent 0px, transparent 6px, ${chainColor} 6px, ${chainColor} 8px)`
+            }} />
+            <div style={{
+              position: 'absolute',
+              width: '22px',
+              height: '22px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 5
+            }}>
+              <span style={{ fontSize: '14px' }}>🔒</span>
+            </div>
+          </>
         )}
       </div>
 

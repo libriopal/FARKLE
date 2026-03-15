@@ -1,158 +1,152 @@
 /**
  * @file src/components/Bomb.tsx
- * @description Renders the Standard Bomb countdown overlay that sits on top of a tile on the game board.
  */
 
+import { memo, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import type { ActiveBomb } from '../types/game';
-import { GAME_CONSTANTS } from '../types/game';
+import type { Bomb as BombType } from '../types/game';
 
-interface Props {
-  bomb: ActiveBomb;
+interface BombProps {
+  bomb: BombType;
   tileSize: number;
+  isDark: boolean;
 }
 
-/**
- * Renders a bomb overlay with a countdown fuse ring and explosion radius hint.
- *
- * @param {Props} props - The component props.
- * @param {ActiveBomb} props.bomb - The active bomb data.
- * @param {number} props.tileSize - The size of each tile in pixels.
- * @returns {JSX.Element} The rendered BombOverlay component.
- */
-export default function BombOverlay({ bomb, tileSize }: Props) {
-  const gap = 4;
-  const padding = 8;
-  const left = padding + bomb.col * (tileSize + gap);
-  const top = padding + bomb.row * (tileSize + gap);
+const Bomb = memo(function Bomb({ bomb, tileSize, isDark }: BombProps) {
+  const [flash, setFlash] = useState(false);
 
-  let pct = bomb.fuseMs / GAME_CONSTANTS.FUSE_MS;
-  pct = Math.max(0, Math.min(1, pct)); // Clamp between 0 and 1
+  useEffect(() => {
+    if (bomb.fuseMs <= 3000 && bomb.fuseMs > 0) {
+      const interval = setInterval(() => {
+        setFlash(f => !f);
+      }, Math.max(100, bomb.fuseMs / 10));
+      return () => clearInterval(interval);
+    } else {
+      setFlash(false);
+    }
+  }, [bomb.fuseMs]);
 
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - pct);
+  const progress = bomb.fuseMs / bomb.maxFuseMs;
+  const isDanger = bomb.fuseMs <= 3000;
+  
+  const sphereSize = tileSize * 0.7;
+  const fuseHeight = tileSize * 0.2;
 
-  const isDanger = bomb.fuseMs < 1000;
-  const isCritical = pct < 0.3;
-
-  // Explosion radius hint dimensions (3x3 grid centered on bomb)
-  const hintSize = 3 * tileSize + 2 * gap;
-  const hintOffset = tileSize + gap;
+  const shadow = isDark
+    ? '0 6px 16px rgba(0,0,0,0.9), 0 0 8px rgba(255,255,255,0.05), inset -3px -3px 8px rgba(0,0,0,0.8)'
+    : '4px 8px 16px rgba(0,0,0,0.5), inset -2px -2px 6px rgba(0,0,0,0.6)';
 
   return (
-    <>
-      {/* EXPLOSION RADIUS HINT */}
-      {bomb.type === 'STANDARD' && (
-        <div
-          style={{
-            position: 'absolute',
-            left: left - hintOffset,
-            top: top - hintOffset,
-            width: hintSize,
-            height: hintSize,
-            border: '1px dashed rgba(239, 68, 68, 0.2)',
-            borderRadius: '16px',
-            pointerEvents: 'none',
-            zIndex: 15,
-            boxSizing: 'border-box',
-          }}
-        />
-      )}
-
-      {/* BOMB OVERLAY CONTAINER */}
-      <div
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0, filter: 'brightness(2) blur(10px)' }}
+      style={{
+        position: 'absolute',
+        top: bomb.row * tileSize,
+        left: bomb.col * tileSize,
+        width: tileSize,
+        height: tileSize,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        zIndex: 20,
+      }}
+    >
+      {/* COUNTDOWN RING */}
+      <svg
+        width={tileSize * 0.9}
+        height={tileSize * 0.9}
         style={{
           position: 'absolute',
-          left,
-          top,
-          width: tileSize,
-          height: tileSize,
-          pointerEvents: 'none',
-          zIndex: 20,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
+          transform: 'rotate(-90deg)',
         }}
       >
-        {/* DANGER FLASH */}
-        {isDanger && (
-          <motion.div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '10px',
-              backgroundColor: '#ef4444',
-            }}
-            animate={{ opacity: [0, 0.4, 0] }}
-            transition={{ duration: 0.18, repeat: Infinity }}
-          />
-        )}
+        <circle
+          cx={tileSize * 0.45}
+          cy={tileSize * 0.45}
+          r={tileSize * 0.4}
+          fill="none"
+          stroke={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+          strokeWidth="4"
+        />
+        <circle
+          cx={tileSize * 0.45}
+          cy={tileSize * 0.45}
+          r={tileSize * 0.4}
+          fill="none"
+          stroke={isDanger ? '#ff4444' : (isDark ? '#fff' : '#000')}
+          strokeWidth="4"
+          strokeDasharray={Math.PI * 2 * (tileSize * 0.4)}
+          strokeDashoffset={Math.PI * 2 * (tileSize * 0.4) * (1 - progress)}
+          style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+        />
+      </svg>
 
-        {/* FUSE COUNTDOWN RING */}
-        <svg
-          viewBox="0 0 44 44"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            transform: 'rotate(-90deg)',
-          }}
-        >
-          <circle
-            cx="22"
-            cy="22"
-            r={radius}
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth="4"
-            fill="none"
-          />
-          <motion.circle
-            cx="22"
-            cy="22"
-            r={radius}
-            fill="none"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            animate={{
-              strokeDashoffset,
-              stroke: isCritical ? ['#ef4444', '#fbbf24', '#ef4444'] : '#ef4444',
-            }}
-            transition={{
-              strokeDashoffset: { duration: 0.1, ease: 'linear' },
-              stroke: isCritical ? { duration: 0.25, repeat: Infinity } : {},
-            }}
-          />
-        </svg>
-
-        {/* BOMB ICON + TIMER */}
+      {/* SPHERE */}
+      <div
+        style={{
+          position: 'relative',
+          width: sphereSize,
+          height: sphereSize,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 30%, #4a4a4a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+          boxShadow: shadow,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          filter: flash ? 'brightness(1.5) drop-shadow(0 0 10px red)' : 'none',
+          transition: 'filter 0.1s',
+        }}
+      >
+        {/* FUSE */}
         <div
           style={{
             position: 'absolute',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
+            top: -fuseHeight + 2,
+            left: '50%',
+            width: '3px',
+            height: fuseHeight,
+            background: 'linear-gradient(to top, #8b6914, #c8a020)',
+            borderRadius: '2px',
+            transform: 'translateX(-50%) rotate(15deg)',
+            transformOrigin: 'bottom center',
+          }}
+        >
+          {/* SPARK */}
+          {bomb.fuseMs > 0 && (
+            <motion.div
+              animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
+              transition={{ duration: 0.15, repeat: Infinity }}
+              style={{
+                position: 'absolute',
+                top: -4,
+                left: -2.5,
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, #fff 0%, #ffdd00 40%, #ff8800 70%, transparent 100%)',
+              }}
+            />
+          )}
+        </div>
+
+        {/* FACE NUMBER */}
+        <div
+          style={{
+            position: 'absolute',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '10px',
+            fontWeight: 900,
             zIndex: 2,
           }}
         >
-          <div style={{ fontSize: '20px', lineHeight: 1 }}>💣</div>
-          <div
-            style={{
-              color: 'white',
-              fontSize: '10px',
-              fontWeight: 900,
-              marginTop: '2px',
-              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-            }}
-          >
-            {(bomb.fuseMs / 1000).toFixed(1)}s
-          </div>
+          {bomb.face}
         </div>
       </div>
-    </>
+    </motion.div>
   );
-}
+});
+
+export default Bomb;

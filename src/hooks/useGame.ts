@@ -5,15 +5,16 @@
 
 import { useReducer, useEffect, useRef, useCallback } from 'react';
 import type {
-  GameState, GamePhase, Cell, GridPos, ActiveBomb, ScorePopup,
-  BombType, DieColor, LobbySettings, RallyRole, DieFace
+  GameState, GamePhase, Cell, GridPos, ActiveBomb,
+  ScorePopup, BombType, DieColor, LobbySettings, RallyRole, DieFace
 } from '../types/game';
-import { GAME_CONSTANTS, getMultiplier, FACE_TO_COLOR, MULTIPLIER_LADDER } from '../types/game';
+import { GAME_CONSTANTS, getMultiplier, MULTIPLIER_LADDER } from '../types/game';
 import { scoreFarkle } from '../utils/farkleScorer';
 import {
-  createGrid, stepGravity, hasEmptyBelow, spawnTiles, normalizeTiles,
-  applyStandardBomb, applyRainbowBomb, damageAdjacentBlockers,
-  hasValidChain, recoverDeadBoard, cloneGrid, DEFAULT_WEIGHTS
+  createGrid, stepGravity, hasEmptyBelow, spawnTiles,
+  normalizeTiles, applyStandardBomb, applyRainbowBomb,
+  damageAdjacentBlockers, hasValidChain, recoverDeadBoard,
+  cloneGrid, DEFAULT_WEIGHTS
 } from '../utils/gridUtils';
 import { nanoid } from 'nanoid';
 
@@ -230,47 +231,65 @@ function reducer(state: GameState, action: Action): GameState {
 export function useCascadeLoop(
   phase: GamePhase,
   grid: Cell[][],
-  dispatch: (a: Action) => void,
-  weights: [number, number, number, number, number, number] = DEFAULT_WEIGHTS
+  dispatch: React.Dispatch<Action>,
+  weights: [number, number, number, number, number, number]
 ): void {
-  const rng = useRef(Math.random);
-  const gridRef = useRef(grid);
+  const gridRef = useRef<Cell[][]>(grid);
   const weightsRef = useRef(weights);
+  const rngRef = useRef(Math.random);
 
-  useEffect(() => { gridRef.current = grid; }, [grid]);
-  useEffect(() => { weightsRef.current = weights; }, [weights]);
+  // Keep refs in sync with latest values
+  gridRef.current = grid;
+  weightsRef.current = weights;
 
   useEffect(() => {
     if (phase !== 'REFILLING') return;
 
-    const intervalId = setInterval(() => {
-      const currentGrid = gridRef.current;
-      const currentWeights = weightsRef.current;
+    let running = true;
 
-      const gravityResult = stepGravity(currentGrid);
-      if (gravityResult.changed) {
-        gridRef.current = gravityResult.grid;
-        dispatch({ type: 'STEP_CASCADE', grid: gravityResult.grid });
+    const tick = () => {
+      if (!running) return;
+
+      const g = gridRef.current;
+      const w = weightsRef.current;
+
+      // Step 1: gravity
+      const { grid: afterGravity, changed } = stepGravity(g);
+      if (changed) {
+        gridRef.current = afterGravity;
+        dispatch({ type: 'STEP_CASCADE', grid: afterGravity });
+        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      if (hasEmptyBelow(currentGrid)) {
+      // Step 2: check if more gravity needed
+      if (hasEmptyBelow(g)) {
+        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      const spawnResult = spawnTiles(currentGrid, currentWeights, rng.current);
-      if (spawnResult.changed) {
-        const normalized = normalizeTiles(spawnResult.grid);
+      // Step 3: spawn new tiles
+      const { grid: afterSpawn, changed: spawned } = spawnTiles(g, w, rngRef.current);
+      if (spawned) {
+        const normalized = normalizeTiles(afterSpawn);
         gridRef.current = normalized;
         dispatch({ type: 'STEP_CASCADE', grid: normalized });
+        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
         return;
       }
 
-      clearInterval(intervalId);
+      // Step 4: grid is stable
       dispatch({ type: 'REFILL_COMPLETE' });
-    }, GAME_CONSTANTS.CASCADE_MS);
+    };
 
-    return () => clearInterval(intervalId);
+    // Start cascade after first tick delay
+    const timeout = setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
+
+    return () => {
+      running = false;
+      clearTimeout(timeout);
+    };
+
   }, [phase, dispatch]);
 }
 
@@ -283,7 +302,7 @@ export function useCascadeLoop(
  */
 export function useBombFuse(
   activeBombs: ActiveBomb[],
-  dispatch: (a: Action) => void,
+  dispatch: React.Dispatch<Action>,
   settings: LobbySettings,
   rainmakerChosenColor?: DieColor
 ): void {
@@ -331,6 +350,14 @@ export function useGame(settings: LobbySettings): {
   useCascadeLoop(state.phase, state.grid, dispatch, DEFAULT_WEIGHTS);
   useBombFuse(state.activeBombs, dispatch, settings);
 
+  useEffect(() => {
+    if (state.phase !== 'FARKLE_ANIM') return;
+    const t = setTimeout(() => {
+      dispatch({ type: 'END_FARKLE_ANIM' });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [state.phase]);
+
   const commitChain = useCallback((chain: GridPos[], role?: RallyRole) => {
     if (state.phase === 'IDLE') {
       dispatch({ type: 'COMMIT_CHAIN', chain, settings, role });
@@ -352,14 +379,6 @@ export function useGame(settings: LobbySettings): {
   const endFarkleAnim = useCallback(() => {
     dispatch({ type: 'END_FARKLE_ANIM' });
   }, []);
-
-  useEffect(() => {
-    if (state.phase !== 'FARKLE_ANIM') return;
-    const t = setTimeout(() => {
-      dispatch({ type: 'END_FARKLE_ANIM' });
-    }, 800);
-    return () => clearTimeout(t);
-  }, [state.phase]);
 
   return {
     state,

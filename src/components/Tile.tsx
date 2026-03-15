@@ -140,8 +140,8 @@ export default function Tile({
   onPointerEnter,
   onPointerUp
 }: TileProps) {
-  const isDark = typeof document !== 'undefined' 
-    ? !document.documentElement.getAttribute('data-theme')?.includes('light')
+  const isDark = typeof document !== 'undefined'
+    ? document.documentElement.getAttribute('data-theme') !== 'light'
     : true;
 
   if (cell.state === 'EMPTY' || cell.type === 'NONE') {

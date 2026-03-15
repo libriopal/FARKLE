@@ -43,14 +43,45 @@ function initialState(settings: LobbySettings): GameState {
 type Action =
   | { type: 'COMMIT_CHAIN'; chain: GridPos[]; settings: LobbySettings; role?: RallyRole }
   | { type: 'BANK' }
-  | { type: 'STEP_CASCADE'; grid: Cell[][] }
-  | { type: 'REFILL_COMPLETE' }
   | { type: 'DETONATE_BOMB'; bombId: string; targetColor?: DieColor; settings: LobbySettings }
   | { type: 'TICK_BOMB'; bombId: string; deltaMs: number }
   | { type: 'REMOVE_POPUP'; id: string }
   | { type: 'END_FARKLE_ANIM' }
   | { type: 'RESET'; settings: LobbySettings }
   | { type: 'ARCHIVIST_RECOVER' };
+
+function applyCascadeSync(
+  grid: Cell[][],
+  weights: [number,number,number,number,number,number]
+): Cell[][] {
+  let current = grid;
+  let iterations = 0;
+  const maxIterations = 50;
+
+  while (iterations < maxIterations) {
+    const { grid: afterGravity, changed } = stepGravity(current);
+    if (changed) {
+      current = afterGravity;
+      iterations++;
+      continue;
+    }
+    if (hasEmptyBelow(current)) {
+      iterations++;
+      continue;
+    }
+    const { grid: afterSpawn, changed: spawned } = spawnTiles(
+      current, weights, Math.random
+    );
+    if (spawned) {
+      current = normalizeTiles(afterSpawn);
+      iterations++;
+      continue;
+    }
+    break;
+  }
+
+  return hasValidChain(current) ? current : recoverDeadBoard(current);
+}
 
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -115,13 +146,14 @@ function reducer(state: GameState, action: Action): GameState {
 
       const newStep = Math.min(state.multiplierStep + 1, MULTIPLIER_LADDER.length - 1);
 
+      const cascadedGrid = applyCascadeSync(gridAfterDamage, DEFAULT_WEIGHTS);
       return {
         ...state,
-        grid: gridAfterDamage,
+        grid: cascadedGrid,
         unbanked: state.unbanked + scaledScore + archivistBonus,
         multiplierStep: newStep,
         consecutiveChains: state.consecutiveChains + 1,
-        phase: 'REFILLING',
+        phase: 'IDLE',
         activeBombs: newActiveBombs,
         farklePool: newFarklePool,
         popups: [...state.popups, { id: nanoid(), score: scaledScore, label: result.combo, color: triggersBomb ? 'gold' : 'green', row: chain[Math.floor(chain.length / 2)].row, col: chain[Math.floor(chain.length / 2)].col }],
@@ -139,15 +171,6 @@ function reducer(state: GameState, action: Action): GameState {
         consecutiveChains: 0,
         lastChainResult: null
       };
-    }
-
-    case 'STEP_CASCADE': {
-      return { ...state, grid: action.grid };
-    }
-
-    case 'REFILL_COMPLETE': {
-      const finalGrid = hasValidChain(state.grid) ? state.grid : recoverDeadBoard(state.grid);
-      return { ...state, grid: finalGrid, phase: 'IDLE' };
     }
 
     case 'DETONATE_BOMB': {
@@ -169,12 +192,13 @@ function reducer(state: GameState, action: Action): GameState {
         );
       }
 
+      const cascadedAfterBomb = applyCascadeSync(bombResult.grid, DEFAULT_WEIGHTS);
       return {
         ...state,
-        grid: bombResult.grid,
+        grid: cascadedAfterBomb,
         unbanked: state.unbanked + bombResult.ptsEarned,
         activeBombs: state.activeBombs.filter(b => b.id !== action.bombId),
-        phase: 'REFILLING',
+        phase: 'IDLE',
         popups: [...state.popups, { id: nanoid(), score: bombResult.ptsEarned, label: bomb.type === 'STANDARD' ? 'BOOM!' : '🌈 RAINBOW!', color: 'gold', row: bomb.row, col: bomb.col }]
       };
     }
@@ -219,76 +243,6 @@ function reducer(state: GameState, action: Action): GameState {
     default:
       return state;
   }
-}
-
-/**
- * Hook that manages the cascading animation loop (gravity and spawning).
- * @param phase The current game phase.
- * @param grid The current game grid.
- * @param dispatch The state dispatcher.
- * @param weights The probability weights for die faces.
- */
-export function useCascadeLoop(
-  phase: GamePhase,
-  grid: Cell[][],
-  dispatch: React.Dispatch<Action>,
-  weights: [number, number, number, number, number, number]
-): void {
-  const rngRef = useRef(Math.random);
-  const gridRef = useRef<Cell[][]>(grid);
-  const weightsRef = useRef(weights);
-
-  useEffect(() => {
-    gridRef.current = grid;
-  });
-
-  useEffect(() => {
-    weightsRef.current = weights;
-  });
-
-  useEffect(() => {
-    if (phase !== 'REFILLING') return;
-
-    let active = true;
-
-    function tick() {
-      if (!active) return;
-
-      const g = gridRef.current;
-      const w = weightsRef.current;
-
-      const { grid: afterGravity, changed } = stepGravity(g);
-      if (changed) {
-        gridRef.current = afterGravity;
-        dispatch({ type: 'STEP_CASCADE', grid: afterGravity });
-        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
-        return;
-      }
-
-      if (hasEmptyBelow(g)) {
-        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
-        return;
-      }
-
-      const { grid: afterSpawn, changed: spawned } = spawnTiles(
-        g, w, rngRef.current
-      );
-      if (spawned) {
-        const normalized = normalizeTiles(afterSpawn);
-        gridRef.current = normalized;
-        dispatch({ type: 'STEP_CASCADE', grid: normalized });
-        setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
-        return;
-      }
-
-      dispatch({ type: 'REFILL_COMPLETE' });
-    }
-
-    setTimeout(tick, GAME_CONSTANTS.CASCADE_MS);
-
-    return () => { active = false; };
-
-  }, [phase, dispatch]);
 }
 
 /**
@@ -345,7 +299,6 @@ export function useGame(settings: LobbySettings): {
 } {
   const [state, dispatch] = useReducer(reducer, settings, initialState);
 
-  useCascadeLoop(state.phase, state.grid, dispatch, DEFAULT_WEIGHTS);
   useBombFuse(state.activeBombs, dispatch, settings);
 
   useEffect(() => {

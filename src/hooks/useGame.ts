@@ -237,9 +237,14 @@ export function useCascadeLoop(
   const gridRef = useRef<Cell[][]>(grid);
   const weightsRef = useRef(weights);
   const rngRef = useRef(Math.random);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
 
-  // Keep refs in sync with latest values
-  gridRef.current = grid;
+  // Only sync gridRef when NOT cascading
+  // During REFILLING the cascade tick owns gridRef
+  if (phase !== 'REFILLING') {
+    gridRef.current = grid;
+  }
   weightsRef.current = weights;
 
   useEffect(() => {

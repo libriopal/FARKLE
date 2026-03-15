@@ -1,5 +1,4 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { getMultiplier } from '../types/game';
 import type { GamePhase } from '../types/game';
 import MultiplierLadder from './MultiplierLadder';
 import BankButton from './BankButton';
@@ -70,6 +69,7 @@ export default function HUD({
       <BankButton
         banked={banked}
         unbanked={unbanked}
+        multiplierStep={multiplierStep}
         onBank={onBank}
         disabled={phase !== 'IDLE'}
       />

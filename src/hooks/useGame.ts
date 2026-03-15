@@ -234,24 +234,35 @@ export function useCascadeLoop(
   weights: [number, number, number, number, number, number] = DEFAULT_WEIGHTS
 ): void {
   const rng = useRef(Math.random);
+  const gridRef = useRef(grid);
+  const weightsRef = useRef(weights);
+
+  useEffect(() => { gridRef.current = grid; }, [grid]);
+  useEffect(() => { weightsRef.current = weights; }, [weights]);
 
   useEffect(() => {
     if (phase !== 'REFILLING') return;
 
     const intervalId = setInterval(() => {
-      const gravityResult = stepGravity(grid);
+      const currentGrid = gridRef.current;
+      const currentWeights = weightsRef.current;
+
+      const gravityResult = stepGravity(currentGrid);
       if (gravityResult.changed) {
+        gridRef.current = gravityResult.grid;
         dispatch({ type: 'STEP_CASCADE', grid: gravityResult.grid });
         return;
       }
 
-      if (hasEmptyBelow(grid)) {
+      if (hasEmptyBelow(currentGrid)) {
         return;
       }
 
-      const spawnResult = spawnTiles(grid, weights, rng.current);
+      const spawnResult = spawnTiles(currentGrid, currentWeights, rng.current);
       if (spawnResult.changed) {
-        dispatch({ type: 'STEP_CASCADE', grid: normalizeTiles(spawnResult.grid) });
+        const normalized = normalizeTiles(spawnResult.grid);
+        gridRef.current = normalized;
+        dispatch({ type: 'STEP_CASCADE', grid: normalized });
         return;
       }
 
@@ -260,7 +271,7 @@ export function useCascadeLoop(
     }, GAME_CONSTANTS.CASCADE_MS);
 
     return () => clearInterval(intervalId);
-  }, [phase, grid, dispatch, weights]);
+  }, [phase, dispatch]);
 }
 
 /**

@@ -33,7 +33,7 @@ const DARK_GLOWS = [
   '0 12px 24px #0044ff44, 0 0 22px #0088ff88, 0 0 44px #0055ff33, 0 4px 8px rgba(0,0,0,0.9)',
   '0 12px 24px #6600ff44, 0 0 16px #aa00ff88, 0 0 32px #ff00ff33, -3px 0 12px #ff008844, 3px 0 12px #0000ff44, 0 4px 8px rgba(0,0,0,0.9)'
 ];
-const LIGHT_SHADOW = '6px 10px 16px rgba(0,0,0,0.28), 2px 4px 6px rgba(0,0,0,0.18)';
+const LIGHT_SHADOW = '6px 10px 16px rgba(0,0,0,0.28), 2px 4px 6px rgba(0,0,0,0.15)';
 
 /**
  * Renders a single circular pip.
@@ -143,8 +143,6 @@ const Tile = memo(function Tile({
   onPointerEnter,
   onPointerUp
 }: TileProps) {
-  // isDark comes from props — no DOM read on every render
-
   if (cell.state === 'EMPTY' || cell.type === 'NONE') {
     return <div style={{ width: '100%', height: '100%' }} />;
   }
@@ -178,7 +176,7 @@ const Tile = memo(function Tile({
       edgeHighlight = 'rgba(255,255,255,0.6)';
     }
   } else if (isStone) {
-    bodyColor = isDark ? '#111111' : '#9ca3af';
+    bodyColor = isDark ? '#1a1a1a' : '#9ca3af';
     shadow = isDark ? '0 0 8px rgba(255,255,255,0.2)' : LIGHT_SHADOW;
     edgeHighlight = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)';
   } else if (isIce) {
@@ -195,11 +193,11 @@ const Tile = memo(function Tile({
   if (isChained) {
     containerScale = 1.1;
     if (isDark) {
-      shadow = `${shadow}, 0 0 20px rgba(255,255,255,0.4)`;
+      shadow = `${shadow}, 0 0 20px rgba(255,255,255,0.3)`;
       topFaceOutline = '2px solid rgba(255,255,255,0.8)';
     } else {
       shadow = `0 10px 20px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2)`;
-      topFaceOutline = '2px solid white';
+      topFaceOutline = '2px solid rgba(255,255,255,0.8)';
     }
   } else if (isAtCap) {
     containerOpacity = 0.3;
@@ -213,9 +211,9 @@ const Tile = memo(function Tile({
   }
 
   if (isStone) {
-    topFaceOutline = isDark ? (cell.health === 1 ? '2px dashed #333' : '2px solid #333') : '2px solid #6b7280';
+    topFaceOutline = cell.health === 1 ? '2px dashed #444' : '2px solid #333';
   } else if (isIce) {
-    topFaceOutline = isDark ? '1px solid #00ffff44' : '1px solid #0ea5e944';
+    topFaceOutline = '1px solid #00ffff44';
   }
 
   const pointerEvents = (isStone || isIce) ? 'none' : 'auto';

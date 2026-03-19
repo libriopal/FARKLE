@@ -112,9 +112,6 @@ function internalScoreFarkle(dice: DieFace[], threeOnesScore: number, singleOneS
     }
   }
 
-  // 3. Solo Single (σ): [1] alone or [5] alone = Farkled
-  if (dice.length === 1) return 0;
-
   return score;
 }
 

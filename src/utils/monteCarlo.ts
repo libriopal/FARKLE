@@ -1,6 +1,6 @@
 import type { DieFace, GameMode } from '../types/game';
 import { MULTIPLIER_LADDER } from '../types/game';
-import { lookupScore, encode } from './chainIndex';
+import { lookupScore } from './chainIndex';
 import { RTP_CONFIGS, getPoolSize } from './rtpConfig';
 import { seededRng } from './csprng';
 
@@ -269,9 +269,6 @@ export function simulateMode(
   const rng = seededRng(0xFA2C1E42);
 
   const scores: number[] = [];
-  let totalChains = 0;
-  let farkledChains = 0;
-  let totalChainLength = 0;
 
   for (let i = 0; i < resolved.sessions; i++) {
     const score = simulateSession(table, rng, resolved);

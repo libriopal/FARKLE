@@ -5,17 +5,95 @@
 
 import type { Cell, DieFace, GridPos, LobbySettings } from '../types/game';
 import { FACE_TO_COLOR, GAME_CONSTANTS } from '../types/game';
-import { scoreFarkle } from './farkleScorer';
+import { lookupScore, buildScoreTable } from './chainIndex';
 import { seededRng } from './csprng';
 import { nanoid }  from 'nanoid';
+
+/** Lazily-built score table for dead-board detection. */
+let _scanTable: Int32Array | null = null;
+function getScanTable(): Int32Array {
+  if (!_scanTable) _scanTable = buildScoreTable();
+  return _scanTable;
+}
+
+/**
+ * Provably fair tile spawn pool using the Deuces Wild model.
+ * Pool contains equal counts of each face value (poolSize/6 of each).
+ * Tiles are drawn in strict shuffle order. Pool reshuffles when depleted.
+ * All players in a session draw from the same global pool instance.
+ *
+ * Pool sizes by player count:
+ *   1P → 60  (7×7 grid, 10 of each face)
+ *   2P → 66  (8×8 grid, 11 of each face)
+ *   3P → 84  (9×9 grid, 14 of each face)
+ *   4P → 102 (10×10 grid, 17 of each face)
+ *
+ * Formula: size = 6 + playerCount
+ *          poolSize = ceil(size² / 6) × 6
+ */
+export class SpawnPool {
+  private pool: DieFace[];
+  private idx: number;
+  private rng: () => number;
+
+  /**
+   * Creates a new SpawnPool for the given player count.
+   * @param playerCount Number of players (1-4).
+   * @param rng Synchronous RNG function for shuffling.
+   */
+  constructor(playerCount: number, rng: () => number) {
+    this.rng = rng;
+    const size = 6 + playerCount;
+    const poolSize = Math.ceil((size * size) / 6) * 6;
+    const perFace = poolSize / 6;
+    this.pool = [];
+    for (let f = 1; f <= 6; f++) {
+      for (let n = 0; n < perFace; n++) {
+        this.pool.push(f as DieFace);
+      }
+    }
+    this.idx = 0;
+    this.reshuffle();
+  }
+
+  /**
+   * Draws the next tile from the pool.
+   * Reshuffles automatically when the pool is depleted.
+   * @returns The next DieFace value.
+   */
+  draw(): DieFace {
+    if (this.idx >= this.pool.length) {
+      this.reshuffle();
+    }
+    return this.pool[this.idx++];
+  }
+
+  /**
+   * Fisher-Yates shuffle of the entire pool using the stored rng.
+   * Resets the draw index to 0.
+   */
+  reshuffle(): void {
+    for (let i = this.pool.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      [this.pool[i], this.pool[j]] = [this.pool[j], this.pool[i]];
+    }
+    this.idx = 0;
+  }
+
+  /**
+   * Returns the number of tiles remaining before the next reshuffle.
+   * @returns Remaining tile count.
+   */
+  remaining(): number {
+    return this.pool.length - this.idx;
+  }
+}
 
 const BLOCKER_DENSITY_RANGES = {
   LOW: { min: 3, max: 4 },
   MEDIUM: { min: 5, max: 7 },
   HIGH: { min: 8, max: 12 },
 };
-
-export const DEFAULT_WEIGHTS: [number, number, number, number, number, number] = [1/6, 1/6, 1/6, 1/6, 1/6, 1/6];
 
 function makeDieCell(face: DieFace): Cell {
   return { id: nanoid(), face, type: FACE_TO_COLOR[face], state: 'NORMAL' };
@@ -37,19 +115,6 @@ function makeEmptyCell(): Cell {
   return { id: nanoid(), face: null, type: 'NONE', state: 'EMPTY' };
 }
 
-function weightedFace(
-  rng: () => number,
-  weights: [number, number, number, number, number, number] = DEFAULT_WEIGHTS
-): DieFace {
-  const float = rng();
-  let cumulative = 0;
-  for (let i = 0; i < 6; i++) {
-    cumulative += weights[i];
-    if (float < cumulative) return (i + 1) as DieFace;
-  }
-  return 6;
-}
-
 function shuffle<T>(arr: T[], rng: () => number): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -58,31 +123,19 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
   return arr;
 }
 
-function ensurePlayableGrid(
-  grid: Cell[][],
-  _size: number,
-  rng: () => number,
-  _weights: [number, number, number, number, number, number]
-): Cell[][] {
-  if (!hasValidChain(grid)) {
-    return recoverDeadBoard(grid, rng, 0);
-  }
-  return grid;
-}
-
 /**
  * Creates a new game grid with randomly placed blockers and die tiles.
  * @param size The width and height of the grid.
  * @param settings Lobby settings containing blockerDensity.
+ * @param pool The SpawnPool to draw tiles from.
  * @param seedNum The numeric seed for the PRNG.
- * @param weights The probability weights for die faces.
  * @returns A fully initialized 2D array of Cells.
  */
 export function createGrid(
   size: number,
   settings: Pick<LobbySettings, 'blockerDensity'>,
-  seedNum = Date.now(),
-  weights: [number, number, number, number, number, number] = DEFAULT_WEIGHTS
+  pool: SpawnPool,
+  seedNum = Date.now()
 ): Cell[][] {
   const rng = seededRng(seedNum);
   const densityRange = BLOCKER_DENSITY_RANGES[settings.blockerDensity];
@@ -116,16 +169,16 @@ export function createGrid(
       if (isStone) {
         grid[r][c] = makeStoneCell();
       } else if (isIce) {
-        grid[r][c] = makeIceCell(weightedFace(rng, weights));
+        grid[r][c] = makeIceCell(pool.draw());
       } else if (isLock) {
-        grid[r][c] = makeLockCell(weightedFace(rng, weights));
+        grid[r][c] = makeLockCell(pool.draw());
       } else {
-        grid[r][c] = makeDieCell(weightedFace(rng, weights));
+        grid[r][c] = makeDieCell(pool.draw());
       }
     }
   }
 
-  return ensurePlayableGrid(grid, size, rng, weights);
+  return grid;
 }
 
 /**
@@ -142,7 +195,7 @@ export function stepGravity(grid: Cell[][]): { grid: Cell[][], changed: boolean 
   for (let r = rows - 2; r >= 0; r--) {
     for (let c = 0; c < cols; c++) {
       const cell = newGrid[r][c];
-      if (cell.state === 'NORMAL' && isDieTile(cell)) {
+      if (cell.state === 'NORMAL' && (isDieTile(cell) || cell.type === 'BOMB_STANDARD' || cell.type === 'BOMB_RAINBOW')) {
         if (newGrid[r + 1][c].state === 'EMPTY') {
           newGrid[r + 1][c] = cell;
           newGrid[r][c] = makeEmptyCell();
@@ -178,14 +231,12 @@ export function hasEmptyBelow(grid: Cell[][]): boolean {
 /**
  * Spawns new tiles in empty cells on the top row.
  * @param grid The current game grid.
- * @param weights The probability weights for die faces.
- * @param rng The random number generator function.
+ * @param pool The SpawnPool to draw tiles from.
  * @returns An object containing the new grid and a boolean indicating if any tile spawned.
  */
 export function spawnTiles(
   grid: Cell[][],
-  weights = DEFAULT_WEIGHTS,
-  rng: () => number = Math.random
+  pool: SpawnPool
 ): { grid: Cell[][], changed: boolean } {
   const newGrid = cloneGrid(grid);
   let changed = false;
@@ -193,7 +244,10 @@ export function spawnTiles(
 
   for (let c = 0; c < cols; c++) {
     if (newGrid[0][c].state === 'EMPTY') {
-      const newCell = makeDieCell(weightedFace(rng, weights));
+      if (newGrid[0][c].type === 'BOMB_STANDARD' || newGrid[0][c].type === 'BOMB_RAINBOW') {
+        continue;
+      }
+      const newCell = makeDieCell(pool.draw());
       newCell.state = 'SPAWNING';
       newGrid[0][c] = newCell;
       changed = true;
@@ -384,7 +438,7 @@ export function hasValidChain(grid: Cell[][]): boolean {
       while (queue.length > 0) {
         const { path, faces } = queue.shift()!;
         
-        if (scoreFarkle(faces).score > 0) {
+        if (lookupScore(faces, getScanTable()) > 0) {
           return true;
         }
 
@@ -412,55 +466,6 @@ export function hasValidChain(grid: Cell[][]): boolean {
 }
 
 /**
- * Recovers a dead board by rerolling non-blocker tiles.
- * @param grid The current game grid.
- * @param rng The random number generator function.
- * @param attempts The number of recovery attempts made so far.
- * @returns A guaranteed playable grid.
- */
-export function recoverDeadBoard(
-  grid: Cell[][],
-  rng: () => number = Math.random,
-  attempts = 0
-): Cell[][] {
-  const newGrid = cloneGrid(grid);
-  const rows = newGrid.length;
-  const cols = newGrid[0].length;
-
-  const weights: [number, number, number, number, number, number] = attempts < 2 
-    ? [0.25, 0.14, 0.14, 0.06, 0.20, 0.21]
-    : [0.35, 0.13, 0.13, 0.04, 0.35, 0.00];
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cell = newGrid[r][c];
-      if (cell.type !== 'STONE' && cell.type !== 'ICE' && cell.type !== 'LOCK') {
-        const newFace = weightedFace(rng, weights);
-        newGrid[r][c] = makeDieCell(newFace);
-      }
-    }
-  }
-
-  if (hasValidChain(newGrid)) {
-    return newGrid;
-  }
-
-  if (attempts < 3) {
-    return recoverDeadBoard(newGrid, rng, attempts + 1);
-  }
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cell = newGrid[r][c];
-      if (cell.type !== 'STONE' && cell.type !== 'ICE' && cell.type !== 'LOCK') {
-        newGrid[r][c] = makeDieCell(1);
-      }
-    }
-  }
-  return newGrid;
-}
-
-/**
  * Checks if a cell is a normal die tile.
  * @param cell The cell to check.
  * @returns True if the cell is a die tile.
@@ -470,7 +475,9 @@ export function isDieTile(cell: Cell): boolean {
          cell.type !== 'NONE' && 
          cell.type !== 'STONE' && 
          cell.type !== 'ICE' && 
-         cell.type !== 'LOCK';
+         cell.type !== 'LOCK' &&
+         cell.type !== 'BOMB_STANDARD' &&
+         cell.type !== 'BOMB_RAINBOW';
 }
 
 /**

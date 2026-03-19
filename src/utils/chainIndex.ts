@@ -6,7 +6,6 @@
  */
 
 import type { DieFace } from '../types/game';
-import { scoreFarkle } from './farkleScorer';
 
 /**
  * The total number of entries in the lookup table.
@@ -65,8 +64,63 @@ export function decode(index: number): { faces: DieFace[]; length: number } {
 }
 
 /**
+ * Internal scoring function used ONLY for building the lookup table.
+ * Implements max-partition Farkle rules.
+ * 
+ * @param dice Array of die faces (1-6)
+ * @param threeOnesScore Configurable score for three 1s
+ * @param singleOneScore Configurable score for a single 1
+ * @returns The score, or 0 if Farkled
+ */
+function internalScoreFarkle(dice: DieFace[], threeOnesScore: number, singleOneScore: number): number {
+  if (dice.length === 0) return 0;
+  
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  for (const face of dice) {
+    counts[face]++;
+  }
+
+  // 1. Evaluate 6-dice full-board combos
+  if (dice.length === 6) {
+    if (counts.slice(1).every(c => c === 1)) return 1500; // Straight
+    if (counts.some(c => c === 6)) return 3000; // Six of a Kind
+    if (counts.filter(c => c === 3).length === 2) return 2500; // Two Triplets
+    if (counts.filter(c => c === 2).length === 3) return 1500; // Three Pairs
+    if (counts.some(c => c === 4) && counts.some(c => c === 2)) return 1500; // Four of a Kind + Pair
+  }
+
+  // 2. Standard partition
+  let score = 0;
+  for (let f = 1; f <= 6; f++) {
+    const c = counts[f];
+    if (c === 0) continue;
+
+    if (c === 5) {
+      score += 2000;
+    } else if (c === 4) {
+      score += 1000;
+    } else if (c === 3) {
+      score += f === 1 ? threeOnesScore : f * 100;
+    } else if (c === 2) {
+      if (f === 1) score += singleOneScore * 2;
+      else if (f === 5) score += 50 * 2;
+      else return 0; // Leftover die
+    } else if (c === 1) {
+      if (f === 1) score += singleOneScore;
+      else if (f === 5) score += 50;
+      else return 0; // Leftover die
+    }
+  }
+
+  // 3. Solo Single (σ): [1] alone or [5] alone = Farkled
+  if (dice.length === 1) return 0;
+
+  return score;
+}
+
+/**
  * Builds the complete 279,936-entry score lookup table by iterating
- * every valid index, decoding it to faces, and calling scoreFarkle().
+ * every valid index, decoding it to faces, and calling the internal scorer.
  * 
  * @param threeOnesScore  Points for Three 1s (default 1000).
  * @param singleOneScore  Points for a Single 1 (default 100).
@@ -91,8 +145,7 @@ export function buildScoreTable(threeOnesScore: number = 1000, singleOneScore: n
     }
     
     const { faces } = decode(i);
-    const result = scoreFarkle(faces, threeOnesScore, singleOneScore);
-    table[i] = result.isFarkle ? 0 : result.score;
+    table[i] = internalScoreFarkle(faces, threeOnesScore, singleOneScore);
   }
   
   return table;

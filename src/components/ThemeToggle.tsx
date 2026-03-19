@@ -3,7 +3,7 @@
  * @description Renders a pill-shaped toggle switch for switching between light and dark themes.
  */
 
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import type { Theme } from '../hooks/useTheme';
 
 interface ThemeToggleProps {

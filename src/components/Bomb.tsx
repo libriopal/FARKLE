@@ -2,8 +2,8 @@
  * @file src/components/Bomb.tsx
  */
 
-import { memo, useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { ActiveBomb } from '../types/game';
 import { GAME_CONSTANTS } from '../types/game';
 

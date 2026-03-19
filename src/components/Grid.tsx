@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import type {
   Cell,
   GridPos,
@@ -45,8 +45,6 @@ export default function Grid({
   activeBombs,
   popups,
   disabled,
-  settings,
-  multiplierStep,
   onCommitChain,
   onRemovePopup,
   playerRole,
@@ -70,8 +68,8 @@ export default function Grid({
     const faces = chain
       .map(p => grid[p.row][p.col]?.face)
       .filter((f): f is DieFace => f !== null);
-    return scoreFarkle(faces, settings.threeOnesScore, settings.singleOneScore);
-  }, [chain, grid, settings.threeOnesScore, settings.singleOneScore]);
+    return scoreFarkle(faces);
+  }, [chain, grid]);
 
   const isAtCap = chain.length >= GAME_CONSTANTS.MAX_CHAIN;
   const chainSet = new Set(chain.map(p => `${p.row},${p.col}`));

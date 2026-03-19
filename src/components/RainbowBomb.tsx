@@ -3,7 +3,7 @@
  */
 
 import { memo, useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import type { ActiveBomb, DieColor } from '../types/game';
 import { GAME_CONSTANTS } from '../types/game';
 

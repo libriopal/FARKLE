@@ -3,7 +3,7 @@
  * @description Renders the pulsing bank action button with at-risk score display.
  */
 
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getMultiplier } from '../types/game';
 
 interface BankButtonProps {

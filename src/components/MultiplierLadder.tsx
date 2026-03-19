@@ -3,7 +3,7 @@
  * @description Renders the multiplier ladder progress strip showing the 6 steps from ×1.0 to ×4.0.
  */
 
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { MULTIPLIER_LADDER } from '../types/game';
 
 interface MultiplierLadderProps {

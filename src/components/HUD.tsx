@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { GamePhase } from '../types/game';
 import MultiplierLadder from './MultiplierLadder';
 import BankButton from './BankButton';

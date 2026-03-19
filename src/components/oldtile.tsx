@@ -4,7 +4,7 @@
  */
 
 import { memo } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import type { Cell } from '../types/game';
 
 interface TileProps {

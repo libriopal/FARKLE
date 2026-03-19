@@ -3,7 +3,7 @@
  * @description Renders a floating score animation that rises from a tile position and fades out.
  */
 
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import type { ScorePopup as PopupType } from '../types/game';
 
 interface Props {

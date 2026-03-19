@@ -13,7 +13,7 @@ import ThemeToggle from './components/ThemeToggle';
 import type { LobbySettings } from './types/game';
 
 const TEST_SETTINGS: LobbySettings = {
-  mode: 'SP_FREE',
+  mode: 'SOLO_FREE',
   playerCount: 1,
   turnTimerSeconds: 10,
   blockerDensity: 'MEDIUM',

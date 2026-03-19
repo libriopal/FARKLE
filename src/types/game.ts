@@ -4,8 +4,23 @@ export type BlockerType = 'STONE'|'ICE'|'LOCK';
 export type CellState = 'NORMAL'|'EMPTY'|'SPAWNING'|'FROZEN'|'LOCKED';
 export type BombType = 'STANDARD'|'RAINBOW';
 export type GamePhase = 'IDLE'|'CHAINING'|'RESOLVING'|'REFILLING'|'BOMB_FUSE'|'FARKLE_ANIM'|'REACTION'|'GAME_OVER';
-export type GameMode = 'SP_CASINO'|'SP_FREE'|'VS_CASINO'|'VS_FREE'|'RALLY_FREE'|'RALLY_CASINO';
+export type GameMode = 'SOLO_CASINO'|'SOLO_FREE'|'VS_CASINO'|'VS_FREE'|'RALLY_FREE'|'RALLY_CASINO';
 export type RallyRole = 'RAINMAKER'|'HEADHUNTER'|'ARCHIVIST'|'CONDUCTOR';
+
+/** XP progression section — maps to one of the four Rally roles.
+ *  Determines which section a player's XP is credited to. */
+export type XPSection = 'HEADHUNTER' | 'CONDUCTOR' | 'RAINMAKER' | 'ARCHIVIST';
+
+/** Display title shown next to a player's name.
+ *  Derived from their highest XP section level. Cosmetic only — no RTP effect. */
+export type PlayerTitle =
+  | 'Recruit' | 'Apprentice' | 'Storm Chaser' | 'Scribe'
+  | 'Hunter' | 'Conductor' | 'Rainmaker' | 'Archivist'
+  | 'Bounty Hunter' | 'Lead' | 'Tempest' | 'Chronicler'
+  | 'Elite' | 'Grand' | 'Cyclone' | 'Grand Archivist'
+  | 'Master Headhunter' | 'Master Conductor'
+  | 'Master Rainmaker' | 'Master Archivist';
+
 export type ReactionVote = 'UP'|'DOWN'|null;
 
 export const FACE_TO_COLOR: Record<DieFace,DieColor> = {
@@ -24,9 +39,11 @@ export const COLOR_TO_TAILWIND: Record<DieColor,string> = {
 export interface Cell {
   id: string;
   face: DieFace | null;
-  type: DieColor | BlockerType | 'NONE';
+  /** Die color, blocker type, bomb type, or NONE for empty cells. */
+  type: DieColor | BlockerType | 'BOMB_STANDARD' | 'BOMB_RAINBOW' | 'NONE';
   state: CellState;
-  health?: number; // Stone: 2→1→0
+  health?: number;  // Stone blocker only: 2 → 1 → 0
+  fuseMs?: number;  // Bomb cells only: countdown from 3000 to 0
 }
 
 export interface GridPos { row: number; col: number; }
@@ -89,8 +106,24 @@ export interface LobbySettings {
   betAmount?: number;
 }
 
+/**
+ * Per-mode RTP configuration used by RTPEngine and Monte Carlo simulations.
+ * RTP is purely decision-based (Deuces Wild model) — spawn weights are always
+ * uniform and are never adjusted per player or session.
+ * @property mode        - The game mode this config applies to.
+ * @property targetRTP   - Base RTP target (e.g. 0.82 for SOLO floor).
+ * @property platformFee - Fee deducted from pot: 0.0 FREE, 0.02 CASINO VS/RALLY.
+ * @property poolSize    - Spawn pool tile count for this mode (60/66/84/102).
+ */
+export interface RTPConfig {
+  mode: GameMode;
+  targetRTP: number;
+  platformFee: number;
+  poolSize: number;
+}
+
 export const DEFAULT_SETTINGS: LobbySettings = {
-  mode:'SP_FREE', playerCount:1, turnTimerSeconds:10,
+  mode:'SOLO_FREE', playerCount:1, turnTimerSeconds:10,
   blockerDensity:'MEDIUM', threeOnesScore:1000,
   singleOneScore:100, rainbowRedReward:100, rainbowBlueReward:50
 };

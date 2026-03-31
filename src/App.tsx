@@ -62,7 +62,6 @@ export default function App() {
 
       <Grid
         grid={state.grid}
-        activeBombs={state.activeBombs}
         popups={state.popups}
         disabled={state.phase !== 'IDLE'}
         settings={TEST_SETTINGS}

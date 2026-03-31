@@ -81,7 +81,7 @@ for (const strategy of strategies) {
     const padLen = sessions.toString().length;
     
     for (let i = 0; i < sessions; i++) {
-      const score = simulateSession(table, rng, options);
+      const score = simulateSession(rng, options);
       scores.push(score);
       
       let color = C.dim;
@@ -110,7 +110,7 @@ for (const strategy of strategies) {
       trueRTP: 0
     };
   } else {
-    const res = simulateMode(mode, table, { strategy, sessions });
+    const res = simulateMode(mode, { strategy, sessions });
     results[strategy] = {
       avgScore: res.avgScore,
       stdDev: res.stdDev,
@@ -123,7 +123,7 @@ for (const strategy of strategies) {
 }
 
 const avgScoreAverage = results['average'].avgScore;
-const normalizer = Math.round(avgScoreAverage / RTP_CONFIGS[mode].targetRTP);
+const normalizer = avgScoreAverage / RTP_CONFIGS[mode].targetRTP;
 
 for (const strategy of strategies) {
   results[strategy].trueRTP = normalizer > 0 ? results[strategy].avgScore / normalizer : 0;
@@ -155,11 +155,11 @@ for (const strategy of displayOrder) {
 }
 
 console.log(`═══════════════════════════════════════════════════`);
-console.log(`Normalizer (average): ${normalizer}`);
+console.log(`Normalizer (average): ${Math.round(normalizer)}`);
 console.log(`═══════════════════════════════════════════════════\n`);
 
 debugContent += `═══════════════════════════════════════════════════\n`;
-debugContent += `Normalizer (average): ${normalizer}\n`;
+debugContent += `Normalizer (average): ${Math.round(normalizer)}\n`;
 debugContent += `═══════════════════════════════════════════════════\n`;
 
 if (exportTxt || exportDocx) {

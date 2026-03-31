@@ -85,6 +85,14 @@ export function simulateSession(rng: () => number, options: Required<SimOptions>
     return Math.min(0.60, base + turnIdx * 0.011);
   }
 
+  // Farkle probability per turn (environ. + chain quality)
+  // random:  poor chain selection → high Farkle rate
+  // average: moderate selection  → medium Farkle rate
+  // perfect: optimal selection   → very low Farkle rate
+  const chainFarkleRate =
+    strategy === 'perfect' ? 0.05 :
+    strategy === 'average' ? 0.20 : 0.42;
+
   let banked = 0;
   let unbanked = 0;
   let multiplierStep = 0;
@@ -105,25 +113,58 @@ export function simulateSession(rng: () => number, options: Required<SimOptions>
 
     let chainScore: number;
 
-    // Score sampling based on Farkle probabilities
-    // This accurately models a real player who can see the board
-    const r = rng();
-    if (strategy === 'perfect') {
-      if (r < 0.05) chainScore = 0;
-      else if (r < 0.15) chainScore = 100;
-      else if (r < 0.35) chainScore = 200;
-      else if (r < 0.65) chainScore = 300;
-      else if (r < 0.85) chainScore = 400;
-      else if (r < 0.95) chainScore = 500;
-      else chainScore = 1000;
+    // Apply chain-level Farkle (separate from env. Farkle above)
+    if (rng() < chainFarkleRate) {
+      chainScore = 0;
     } else {
-      if (r < 0.25) chainScore = 0;
-      else if (r < 0.45) chainScore = 50;
-      else if (r < 0.65) chainScore = 100;
-      else if (r < 0.80) chainScore = 150;
-      else if (r < 0.92) chainScore = 200;
-      else if (r < 0.98) chainScore = 300;
-      else chainScore = 500;
+      // Sample score from distribution weighted by strategy skill
+      const roll = rng();
+      if (strategy === 'perfect') {
+        // Optimal play: rarely low scores, often high combos
+        if      (roll < 0.05) chainScore = 50;
+        else if (roll < 0.12) chainScore = 100;
+        else if (roll < 0.20) chainScore = 150;
+        else if (roll < 0.28) chainScore = 300;
+        else if (roll < 0.36) chainScore = 500;
+        else if (roll < 0.44) chainScore = 600;
+        else if (roll < 0.52) chainScore = 1000;
+        else if (roll < 0.60) chainScore = 1050;
+        else if (roll < 0.67) chainScore = 1100;
+        else if (roll < 0.74) chainScore = 1500;
+        else if (roll < 0.81) chainScore = 2000;
+        else if (roll < 0.88) chainScore = 2500;
+        else                  chainScore = 3000;
+      } else if (strategy === 'average') {
+        // Casual play: moderate scores, some wasted chains
+        if      (roll < 0.18) chainScore = 50;
+        else if (roll < 0.34) chainScore = 100;
+        else if (roll < 0.44) chainScore = 150;
+        else if (roll < 0.52) chainScore = 200;
+        else if (roll < 0.59) chainScore = 300;
+        else if (roll < 0.65) chainScore = 400;
+        else if (roll < 0.70) chainScore = 500;
+        else if (roll < 0.75) chainScore = 600;
+        else if (roll < 0.80) chainScore = 1000;
+        else if (roll < 0.84) chainScore = 1050;
+        else if (roll < 0.88) chainScore = 1500;
+        else if (roll < 0.93) chainScore = 2000;
+        else                  chainScore = 2500;
+      } else {
+        // Random play: mostly low scores, rarely high combos
+        if      (roll < 0.30) chainScore = 50;
+        else if (roll < 0.50) chainScore = 100;
+        else if (roll < 0.62) chainScore = 150;
+        else if (roll < 0.70) chainScore = 200;
+        else if (roll < 0.76) chainScore = 300;
+        else if (roll < 0.81) chainScore = 400;
+        else if (roll < 0.85) chainScore = 500;
+        else if (roll < 0.88) chainScore = 600;
+        else if (roll < 0.91) chainScore = 1000;
+        else if (roll < 0.94) chainScore = 1050;
+        else if (roll < 0.96) chainScore = 1500;
+        else if (roll < 0.98) chainScore = 2000;
+        else                  chainScore = 2500;
+      }
     }
 
     if (chainScore === 0) {
@@ -131,8 +172,7 @@ export function simulateSession(rng: () => number, options: Required<SimOptions>
       unbanked = 0;
       multiplierStep = 0;
       consecutiveChains = 0;
-      if (strategy !== 'perfect' && rng() < 0.33) break;
-      continue;
+      break;
     }
 
     // Scoring chain — apply multiplier
@@ -159,8 +199,7 @@ export function simulateSession(rng: () => number, options: Required<SimOptions>
       unbanked = 0;
       multiplierStep = 0;
       consecutiveChains = 0;
-      // perfect: always continues; others: 42% chance to stop
-      if (strategy !== 'perfect' && rng() > 0.58) break;
+      break;
     }
   }
 

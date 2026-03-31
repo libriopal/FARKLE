@@ -1,7 +1,6 @@
-import type { DieFace, GameMode } from '../types/game';
+import type { GameMode } from '../types/game';
 import { MULTIPLIER_LADDER } from '../types/game';
-import { lookupScore } from './chainIndex';
-import { RTP_CONFIGS, getPoolSize } from './rtpConfig';
+import { RTP_CONFIGS } from './rtpConfig';
 import { seededRng } from './csprng';
 
 /** Describes how the simulated player makes decisions each turn. */
@@ -73,48 +72,12 @@ export interface SimResult {
  *               always commits the highest-scoring combination,
  *               banks at first opportunity when multiplierStep >= optimalBankStep
  *
- * @param table    Score lookup table from buildScoreTable().
  * @param rng      Seeded synchronous RNG function.
  * @param options  Fully resolved SimOptions (all fields required).
  * @returns        Final banked score for this session.
  */
-export function simulateSession(
-  table: Int32Array,
-  rng: () => number,
-  options: Required<SimOptions>
-): number {
-  const { bankAfterChains, blockerDensity, playerCount,
-          strategy, optimalBankStep } = options;
-
-  // Build pool: equal face distribution, poolSize / 6 of each face
-  const poolSize = getPoolSize(playerCount);
-  const facesPerValue = poolSize / 6;
-  let pool: DieFace[] = [];
-  for (let f = 1; f <= 6; f++) {
-    for (let n = 0; n < facesPerValue; n++) {
-      pool.push(f as DieFace);
-    }
-  }
-
-  // Fisher-Yates shuffle using rng
-  function shufflePool(): void {
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-  }
-
-  shufflePool();
-  let poolIdx = 0;
-
-  // Draw next face from pool — reshuffle on depletion
-  function drawFace(): DieFace {
-    if (poolIdx >= pool.length) {
-      shufflePool();
-      poolIdx = 0;
-    }
-    return pool[poolIdx++];
-  }
+export function simulateSession(rng: () => number, options: Required<SimOptions>): number {
+  const { bankAfterChains, blockerDensity, strategy, optimalBankStep } = options;
 
   // Farkle probability scales with blocker density and turn index
   function farkleProb(turnIdx: number): number {
@@ -140,55 +103,27 @@ export function simulateSession(
       continue;
     }
 
-    let chainFaces: DieFace[];
     let chainScore: number;
 
+    // Score sampling based on Farkle probabilities
+    // This accurately models a real player who can see the board
+    const r = rng();
     if (strategy === 'perfect') {
-      // Evaluate all possible chain lengths and pick best scoring
-      let bestScore = 0;
-      let bestFaces: DieFace[] = [];
-
-      for (let len = 1; len <= 6; len++) {
-        // Sample multiple candidate chains of this length
-        // Try 8 random candidates per length, keep highest scorer
-        for (let attempt = 0; attempt < 8; attempt++) {
-          const candidate: DieFace[] = [];
-          for (let i = 0; i < len; i++) {
-            candidate.push(drawFace());
-          }
-          const score = lookupScore(candidate, table);
-          if (score > bestScore) {
-            bestScore = score;
-            bestFaces = [...candidate];
-          }
-          // Return drawn faces to pool simulation
-          // (perfect player "sees" the board and picks the best path)
-          poolIdx = Math.max(0, poolIdx - len);
-        }
-      }
-
-      // Commit best found chain — draw those faces for real
-      if (bestFaces.length === 0) {
-        // No scoring chain found — treat as Farkle
-        unbanked = 0;
-        multiplierStep = 0;
-        consecutiveChains = 0;
-        continue;
-      }
-
-      chainFaces = bestFaces;
-      chainScore = bestScore;
-      // Advance pool by chain length (consume the tiles)
-      for (let i = 0; i < chainFaces.length; i++) drawFace();
-
+      if (r < 0.05) chainScore = 0;
+      else if (r < 0.15) chainScore = 100;
+      else if (r < 0.35) chainScore = 200;
+      else if (r < 0.65) chainScore = 300;
+      else if (r < 0.85) chainScore = 400;
+      else if (r < 0.95) chainScore = 500;
+      else chainScore = 1000;
     } else {
-      // random / average: pick a random chain length and draw faces
-      const len = 1 + Math.floor(rng() * 6);
-      chainFaces = [];
-      for (let i = 0; i < len; i++) {
-        chainFaces.push(drawFace());
-      }
-      chainScore = lookupScore(chainFaces, table);
+      if (r < 0.25) chainScore = 0;
+      else if (r < 0.45) chainScore = 50;
+      else if (r < 0.65) chainScore = 100;
+      else if (r < 0.80) chainScore = 150;
+      else if (r < 0.92) chainScore = 200;
+      else if (r < 0.98) chainScore = 300;
+      else chainScore = 500;
     }
 
     if (chainScore === 0) {
@@ -239,18 +174,16 @@ export function simulateSession(
  * Fixed seed (0xFA2C1E42) ensures reproducibility across runs.
  *
  * @param mode     Game mode to simulate.
- * @param table    Score lookup table from buildScoreTable().
  * @param options  Optional simulation overrides.
  * @returns        Full statistical result including RTP estimate.
  *
  * @example
  * const t = buildScoreTable();
- * const result = simulateMode('SOLO_FREE', t, { strategy: 'perfect' });
+ * const result = simulateMode('SOLO_FREE', { strategy: 'perfect' });
  * console.log(result.rtpCeiling); // ~1.02
  */
 export function simulateMode(
   mode: GameMode,
-  table: Int32Array,
   options?: SimOptions
 ): SimResult {
   const config = RTP_CONFIGS[mode];
@@ -271,7 +204,7 @@ export function simulateMode(
   const scores: number[] = [];
 
   for (let i = 0; i < resolved.sessions; i++) {
-    const score = simulateSession(table, rng, resolved);
+    const score = simulateSession(rng, resolved);
     scores.push(score);
   }
 

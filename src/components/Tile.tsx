@@ -13,7 +13,6 @@ interface TileProps {
   col: number;
   isChained: boolean;
   chainIndex: number;
-  chainLength: number;
   isAtCap: boolean;
   isDark: boolean;
   onPointerDown: (e: React.PointerEvent, row: number, col: number) => void;
@@ -135,7 +134,6 @@ const Tile = memo(function Tile({
   col,
   isChained,
   chainIndex,
-  chainLength,
   isAtCap,
   isDark,
   onPointerDown,

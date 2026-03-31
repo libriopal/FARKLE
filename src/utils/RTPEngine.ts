@@ -3,7 +3,6 @@
  * @description Casino payout normalizer and drift correction engine.
  */
 
-import { buildScoreTable } from './chainIndex';
 import { simulateMode } from './monteCarlo';
 import type { GameMode } from '../types/game';
 
@@ -49,8 +48,7 @@ export class RTPEngine {
     bankAfterN = 4,
     simCount = 4000
   ): number {
-    const table = buildScoreTable();
-    const result = simulateMode(mode, table, {
+        const result = simulateMode(mode, {
       sessions: simCount,
       strategy: 'average',
       blockerDensity,

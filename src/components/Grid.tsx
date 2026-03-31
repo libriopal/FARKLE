@@ -9,7 +9,6 @@ import type {
   Cell,
   GridPos,
   ScorePopup as PopupType,
-  ActiveBomb,
   LobbySettings,
   RallyRole,
   DieFace
@@ -20,11 +19,9 @@ import { useChain } from '../hooks/useChain';
 import Tile from './Tile';
 import ScorePopup from './ScorePopup';
 
-import BombOverlay from './Bomb';
 
 interface GridProps {
   grid: Cell[][];
-  activeBombs: ActiveBomb[];
   popups: PopupType[];
   disabled: boolean;
   settings: LobbySettings;
@@ -42,7 +39,6 @@ interface GridProps {
  */
 export default function Grid({
   grid,
-  activeBombs,
   popups,
   disabled,
   onCommitChain,
@@ -143,7 +139,6 @@ export default function Grid({
                     col={c}
                     isChained={chainSet.has(key)}
                     chainIndex={idx}
-                    chainLength={chain.length}
                     isAtCap={isAtCap && !chainSet.has(key)}
                     isDark={isDark}
                     onPointerDown={startChain}
@@ -158,16 +153,14 @@ export default function Grid({
       </motion.div>
 
       {/* Bomb overlays */}
-      {activeBombs.map(bomb => (
-        <BombOverlay key={bomb.id} bomb={bomb} tileSize={tileSize} isDark={isDark} />
-      ))}
+      
 
       {/* Score popups */}
       {popups.map(popup => (
         <ScorePopup
           key={popup.id}
           popup={popup}
-          gridSize={size}
+          
           tileSize={tileSize}
           onDone={() => onRemovePopup(popup.id)}
         />

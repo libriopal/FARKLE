@@ -3,7 +3,6 @@
  * @description The React 19 application entry point. Bootstraps the root component.
  */
 
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';

@@ -8,7 +8,6 @@ import type { ScorePopup as PopupType } from '../types/game';
 
 interface Props {
   popup: PopupType;
-  gridSize: number;
   tileSize: number;
   onDone: () => void;
 }
@@ -24,12 +23,11 @@ const COLOR_MAP: Record<string, string> = {
  *
  * @param {Props} props - The component props.
  * @param {PopupType} props.popup - The popup data containing score, label, color, row, and col.
- * @param {number} props.gridSize - The size of the grid (number of rows/cols).
- * @param {number} props.tileSize - The size of each tile in pixels.
+  * @param {number} props.tileSize - The size of each tile in pixels.
  * @param {() => void} props.onDone - Callback fired when the animation completes to remove the popup.
  * @returns {JSX.Element} The rendered ScorePopup component.
  */
-export default function ScorePopup({ popup, gridSize, tileSize, onDone }: Props) {
+export default function ScorePopup({ popup, tileSize, onDone }: Props) {
   const gap = 4;
   const left = popup.col * (tileSize + gap) + tileSize / 2 + 8;
   const top = popup.row * (tileSize + gap);

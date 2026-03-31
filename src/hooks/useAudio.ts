@@ -110,7 +110,7 @@ export function useAudio() {
    * Satisfying ascending chime — reward sound.
    * @param amount The amount banked (currently unused for sound generation).
    */
-  const playBank = useCallback((amount: number) => {
+  const playBank = useCallback(() => {
     const ctx = ensureCtx();
     const t = ctx.currentTime;
     const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6

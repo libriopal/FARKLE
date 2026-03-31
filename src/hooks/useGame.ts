@@ -5,8 +5,8 @@
 
 import { useReducer, useEffect, useRef, useCallback } from 'react';
 import type {
-  GameState, GamePhase, Cell, GridPos, ActiveBomb,
-  ScorePopup, BombType, DieColor, LobbySettings, RallyRole, DieFace
+  GameState, Cell, GridPos, ActiveBomb,
+  BombType, DieColor, LobbySettings, RallyRole, DieFace
 } from '../types/game';
 import { GAME_CONSTANTS, getMultiplier, MULTIPLIER_LADDER } from '../types/game';
 import { scoreFarkle } from '../utils/farkleScorer';
@@ -88,7 +88,7 @@ function applyCascadeSync(
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'COMMIT_CHAIN': {
-      const { chain, settings, role, pool } = action;
+      const { chain, role, pool } = action;
       
       // σ rule: minimum chain length is 2 tiles.
       // Single-tile chains are blocked here — scorer is pure math.

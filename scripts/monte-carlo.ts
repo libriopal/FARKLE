@@ -57,8 +57,8 @@ console.log(`║  🎲 FARKLE FRENZY — RTP SIMULATION                   ║`);
 console.log(`╚═══════════════════════════════════════════════════════╝`);
 console.log(`Mode: ${C.cyan}${mode}${C.reset} | Sessions: ${C.yellow}${sessions}${C.reset} | Strategy: all three\n`);
 
-const strategies: SimStrategy[] = ['random', 'average', 'perfect'];
-const results: Record<SimStrategy, { avgScore: number; stdDev: number; estimatedRTP: number }> = {} as any;
+const strategies: SimStrategy[] = ['average', 'random', 'perfect'];
+const results: Record<SimStrategy, { avgScore: number; stdDev: number; trueRTP: number }> = {} as any;
 
 let debugContent = `Timestamp: ${new Date().toISOString()}\nMode: ${mode}\nSessions: ${sessions}\n\n`;
 
@@ -103,20 +103,18 @@ for (const strategy of strategies) {
     const avgScore = scores.reduce((a, b) => a + b, 0) / sessions;
     const variance = scores.reduce((sum, s) => sum + Math.pow(s - avgScore, 2), 0) / sessions;
     const stdDev = Math.sqrt(variance);
-    const normalizer = avgScore / RTP_CONFIGS[mode].targetRTP;
-    const estimatedRTP = normalizer > 0 ? avgScore / normalizer : 0;
     
     results[strategy] = {
       avgScore: Math.round(avgScore),
       stdDev: Math.round(stdDev),
-      estimatedRTP: Math.round(estimatedRTP * 10000) / 10000
+      trueRTP: 0
     };
   } else {
     const res = simulateMode(mode, table, { strategy, sessions });
     results[strategy] = {
       avgScore: res.avgScore,
       stdDev: res.stdDev,
-      estimatedRTP: res.estimatedRTP
+      trueRTP: 0
     };
   }
   
@@ -127,6 +125,10 @@ for (const strategy of strategies) {
 const avgScoreAverage = results['average'].avgScore;
 const normalizer = Math.round(avgScoreAverage / RTP_CONFIGS[mode].targetRTP);
 
+for (const strategy of strategies) {
+  results[strategy].trueRTP = normalizer > 0 ? results[strategy].avgScore / normalizer : 0;
+}
+
 console.log(`═══════════════════════════════════════════════════`);
 console.log(`Strategy    AvgScore    StdDev    RTP`);
 console.log(`───────────────────────────────────────────────────`);
@@ -135,16 +137,18 @@ debugContent += `═════════════════════
 debugContent += `Strategy    AvgScore    StdDev    RTP\n`;
 debugContent += `───────────────────────────────────────────────────\n`;
 
-for (const strategy of strategies) {
+const displayOrder: SimStrategy[] = ['random', 'average', 'perfect'];
+
+for (const strategy of displayOrder) {
   const r = results[strategy];
   const stratStr = strategy.padEnd(12, ' ');
   const avgStr = r.avgScore.toString().padEnd(12, ' ');
   const stdStr = r.stdDev.toString().padEnd(10, ' ');
-  const rtpStr = r.estimatedRTP.toFixed(2);
+  const rtpStr = r.trueRTP.toFixed(2);
   
   let rtpColor = C.red;
-  if (r.estimatedRTP >= 1.00) rtpColor = C.green;
-  else if (r.estimatedRTP >= 0.90) rtpColor = C.yellow;
+  if (r.trueRTP >= 1.00) rtpColor = C.green;
+  else if (r.trueRTP >= 0.90) rtpColor = C.yellow;
   
   console.log(`${stratStr}${avgStr}${stdStr}${rtpColor}${rtpStr}${C.reset}`);
   debugContent += `${stratStr}${avgStr}${stdStr}${rtpStr}\n`;

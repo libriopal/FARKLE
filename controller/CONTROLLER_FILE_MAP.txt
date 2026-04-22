@@ -1,0 +1,123 @@
+==================================================
+CONTROLLER SYSTEM FILE MAP
+==================================================
+
+[FILE]
+Path: /scripts/ff-controller/package.json
+Purpose: NPM configuration and dependencies for the controller
+Used By: Node.js/NPM environments
+Depends On:
+- ts-morph
+- @google/genai
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/cli.ts
+Purpose: Main CLI entry point for the controller loop
+Used By: CLI (via npx tsx)
+Depends On:
+- /scripts/ff-controller/src/orchestrator.ts
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/orchestrator.ts
+Purpose: Top-level integration of staging, validation, repair, and hardening
+Used By: /scripts/ff-controller/src/cli.ts
+Depends On:
+- fs
+- path
+- /scripts/ff-controller/src/services/lock.service.ts
+- /scripts/ff-controller/src/services/ai.service.ts
+- /scripts/ff-controller/src/services/validation.service.ts
+- /scripts/ff-controller/src/repair-engine.ts
+- /scripts/ff-controller/src/services/git.service.ts
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/repair-engine.ts
+Purpose: Central self-healing loop executing AST, Regex, and AI repairs
+Used By: /scripts/ff-controller/src/orchestrator.ts
+Depends On:
+- fs
+- crypto
+- /scripts/ff-controller/src/services/ast.service.ts
+- /scripts/ff-controller/src/services/regex.service.ts
+- /scripts/ff-controller/src/services/ai.service.ts
+- /scripts/ff-controller/src/services/validation.service.ts
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/lock.service.ts
+Purpose: Concurrency lock mechanism preventing parallel mutation conflicts
+Used By: /scripts/ff-controller/src/orchestrator.ts
+Depends On:
+- fs
+- path
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/git.service.ts
+Purpose: Encapsulates branching, PR creation, and status escalation pushes
+Used By: /scripts/ff-controller/src/orchestrator.ts
+Depends On:
+- child_process
+- fs
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/validation.service.ts
+Purpose: Safe shell execution for Vitest suites and tsc block constraints
+Used By: /scripts/ff-controller/src/orchestrator.ts, /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- child_process
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/ai.service.ts
+Purpose: Deterministic wrapper for Gemini Generative AI mutations and tracking
+Used By: /scripts/ff-controller/src/orchestrator.ts, /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- @google/genai
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/ast.service.ts
+Purpose: Syntax-tree targeting for structural anomalies without LLM overhead
+Used By: /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- ts-morph
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/regex.service.ts
+Purpose: Safe pattern mutator for MD artifacts and duplicate lines
+Used By: /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- fs
+
+---
+
+[FILE]
+Path: /.ff-verify/temp/
+Purpose: Volatile staging directory for code evaluated during iteration loop
+Used By: /scripts/ff-controller/src/orchestrator.ts, /scripts/ff-controller/src/repair-engine.ts
+Depends On: 
+- N/A (Directory)
+
+---
+
+[FILE]
+Path: /.ff-verify/reports/
+Purpose: Escalation repository retaining failures upon loop termination
+Used By: /scripts/ff-controller/src/services/git.service.ts
+Depends On: 
+- N/A (Directory)

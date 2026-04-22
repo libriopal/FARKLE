@@ -1,0 +1,244 @@
+==================================================
+FARKLE FRENZY — FULL PROJECT FILE MAP
+==================================================
+
+# 🔧 CONTROLLER SYSTEM
+
+[FILE]
+Path: /scripts/ff-controller/src/cli.ts
+Purpose: Main CLI entry point. Parses prompt variables and triggers the orchestrator.
+Used By: CLI (via Node/tsx)
+Depends On:
+- /scripts/ff-controller/src/orchestrator.ts
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/orchestrator.ts
+Purpose: Top-level integration of staging, validation, repair, and hardening pipelines.
+Used By: /scripts/ff-controller/src/cli.ts
+Depends On:
+- fs, path
+- /scripts/ff-controller/src/services/lock.service.ts
+- /scripts/ff-controller/src/services/ai.service.ts
+- /scripts/ff-controller/src/services/validation.service.ts
+- /scripts/ff-controller/src/repair-engine.ts
+- /scripts/ff-controller/src/services/git.service.ts
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/repair-engine.ts
+Purpose: Central self-healing loop executing strict AST, Regex, and AI repairs with cycle protection.
+Used By: /scripts/ff-controller/src/orchestrator.ts
+Depends On:
+- fs, crypto
+- /scripts/ff-controller/src/services/ast.service.ts
+- /scripts/ff-controller/src/services/regex.service.ts
+- /scripts/ff-controller/src/services/ai.service.ts
+- /scripts/ff-controller/src/services/validation.service.ts
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/lock.service.ts
+Purpose: Concurrency lock mechanism preventing parallel mutation conflicts.
+Used By: /scripts/ff-controller/src/orchestrator.ts
+Depends On:
+- fs, path
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/git.service.ts
+Purpose: Encapsulates branching, automated PR creation, and structured escalation pushes.
+Used By: /scripts/ff-controller/src/orchestrator.ts
+Depends On:
+- child_process
+- fs
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/ai.service.ts
+Purpose: Deterministic wrapper for Gemini Generative AI mutations and tracking.
+Used By: /scripts/ff-controller/src/orchestrator.ts, /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- @google/genai
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/ast.service.ts
+Purpose: Syntax-tree targeting for structural anomalies without LLM token overhead.
+Used By: /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- ts-morph
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/src/services/regex.service.ts
+Purpose: Safe pattern mutator for Markdown artifacts and duplicate line termination.
+Used By: /scripts/ff-controller/src/repair-engine.ts
+Depends On:
+- fs
+
+---
+
+[FILE]
+Path: /scripts/ff-controller/package.json
+Purpose: NPM configuration, managing local dependencies specifically to build the controller.
+Used By: NPM / Yarn
+Depends On:
+- ts-morph
+- @google/genai
+
+---
+
+[FILE]
+Path: /controller/CONTROLLER_FILE_MAP.txt
+Purpose: Static audit manifest documenting the controller topology.
+Used By: System Auditors
+Depends On: N/A
+
+---
+
+# 🧪 VALIDATION SYSTEM
+
+[FILE]
+Path: /scripts/ff-controller/src/services/validation.service.ts
+Purpose: Sandbox executor securing dynamic shell executions matching to Vitest and TSC.
+Outputs: JSON formatted logs mapping to `ValidationResult`.
+Used By: /scripts/ff-controller/src/orchestrator.ts, /scripts/ff-controller/src/repair-engine.ts
+
+---
+
+[FILE]
+Path: (Native CLI) npx vitest run --reporter=json
+Purpose: Baseline sandbox testing constraint logic triggered dynamically against target files.
+Outputs: JSON schema mapping of test execution results.
+Used By: /scripts/ff-controller/src/services/validation.service.ts
+
+---
+
+[FILE]
+Path: (Native CLI) npx tsc --noEmit
+Purpose: End-block constraint ensuring overall workspace types are fully unified.
+Outputs: Stdout validation logs targeting unhandled variable references.
+Used By: /scripts/ff-controller/src/services/validation.service.ts
+
+---
+
+# 📁 STAGING SYSTEM
+
+[DIRECTORY]
+Path: /.ff-verify/
+Purpose: Ephemeral, strict sandbox boundaries isolating LLM output from source structures.
+
+Subdirectories:
+- temp/ : Active mutating stage where Gemini output undergoes the loop process.
+- reports/ : Persistent log location where max-attempt escalation files are dumped.
+- history/ : Conceptual sub-state routing trace memory (Implicit inside repair-engine logic).
+- locks/ : Conceptual trace location for .lock mappings next to workspace paths.
+
+---
+
+# 🧠 ENGINE / SHARED / CLIENT IMPACT
+
+[FILE]
+Path: /src/utils/monteCarlo.ts
+Change Type: MODIFIED
+Purpose: Updated Monte Carlo probability matrices bridging Farkle evaluation ranges.
+Linked To Controller: no
+
+[FILE]
+Path: /scripts/monte-carlo.ts
+Change Type: MODIFIED
+Purpose: Adjusted CLI runtime testing standard RTP evaluations.
+Linked To Controller: no
+
+[FILE]
+Path: /src/App.tsx
+Change Type: MODIFIED
+Purpose: Stripped unused activeBombs bindings bridging generic component trees.
+Linked To Controller: no
+
+[FILE]
+Path: /vite.config.ts
+Change Type: MODIFIED
+Purpose: Standardized tailwind CSS configurations resolving compilation bugs.
+Linked To Controller: no
+
+[FILE]
+Path: /index.html
+Change Type: NEW
+Purpose: Vite startup entry replacing missing root index definitions.
+Linked To Controller: no
+
+---
+
+# 🔗 DEPENDENCY GRAPH (CRITICAL)
+
+cli.ts →
+- orchestrator.ts
+
+orchestrator.ts →
+- ai.service.ts (Gemini API)
+- lock.service.ts (fs/path)
+- validation.service.ts (child_process)
+- repair-engine.ts
+- git.service.ts (child_process/fs)
+
+repair-engine.ts →
+- ast.service.ts (ts-morph)
+- regex.service.ts (fs)
+- ai.service.ts (Gemini API)
+- validation.service.ts (child_process)
+
+---
+
+# ⚙️ EXECUTION FLOW SUMMARY
+
+1. How a patch enters system: Data is piped via CLI (`npx tsx src/cli.ts <PROMPT> --auto "<prompt text>"`), extracting the reference identity and task string.
+2. Where it is stored: Baseline generated files are temporarily isolated and hydrated within `/.ff-verify/temp/`. Active system lockfiles prevent parallel collisions on the real source target.
+3. How validation runs: Node's `child_process` securely issues `npx vitest run --reporter=json` returning state evaluation parsed by `validation.service.ts`.
+4. How repair loop works: If Vitest fails, a max-5 cycle loop fires in stringent order: TS-Morph AST structure fix -> Safe pattern RegEx -> targeted AI diff replacement -> ultimate AI rewrite. Hashes of current states are tracked (Cycle Break) to catch infinite AI traps.
+5. How success is handled: Changes permanently write locally. The block-wide TS type check runs strictly once. Real source is replaced. Branch is cut `patch/<id>`, committed, remote-pushed, and a `gh pr create` CLI fires natively.
+6. How failure is handled: If the loop traps or reaches 5 iterations, PRs are bypassed. A git branch is pushed for offline evaluation containing a generated comprehensive trace log inside `/.ff-verify/reports/<PROMPT_ID>_escalation.txt`.
+
+---
+
+# 🧪 VALIDATION FLOW
+
+1. Target unit/integration sandboxes (npx vitest).
+2. Code manipulation constraint loop checking AST and structure maps statically.
+3. Repetitive testing cycle matching mutated code states against test outputs.
+4. Total Monolithic Compilation Gate (npx tsc) mapped universally upon isolated loop approvals.
+
+---
+
+# 🚨 MISSING / RISK DETECTION
+
+### Missing Components:
+- There is no central configuration validation mechanism confirming that native packages (like Vitest & gh CLI) actually exist within the host machine before executing child paths.
+- The GitService commits everything tracking the active stage, assuming the repo tree is natively pristine prior. It does not actively stash previous modifications.
+- Explicit creation logic for `history/` and `locks/` tracking matrices natively missing explicit sub-directory implementations.
+
+### Risky Design Choices:
+- Injecting the active code into the real source path (`targetPath`) mid-loop before final validation to appease TS module-resolution paths is inherently risky. If the process is hard-killed (e.g. SIGKILL), `.lock` handlers and `fs.writeFileSync(realSrcBackupBytes)` restore calls won't fire via standard `finally` mechanics.
+- Parsing standard error from testing suites explicitly assumes accurate and predictable JSON topologies mappings from Vitest failures.
+- Shell command execution using `child_process.execSync` can be susceptible to basic command injection if prompt formatting natively carries malformed characters like `$(reboot)`.
+
+### Over-Engineering:
+- The cycle hash trapping (Crypto SHA256 loops tracking) might over-constrain the AI if it attempts identical baseline logic structures with differently ordered imports masking as repetitive traps.
+- Imposing strict abstract syntax tree structural updates (`ts-morph`) merely targeting generic faults (e.g. `getDefaultExportSymbol()`) might be superfluous token saving natively offsetting high maintenance configurations versus using tight AI diffs.
+
+---
+
+# 📊 FILE COUNT SUMMARY
+
+Total files: 16
+Controller-related: 11
+Validation-related: 3
+Modified existing files: 5

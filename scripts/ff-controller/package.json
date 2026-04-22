@@ -1,0 +1,21 @@
+{
+  "name": "ff-controller",
+  "version": "1.0.0",
+  "description": "Deterministic self-healing patch controller for Farkle Frenzy",
+  "main": "src/cli.ts",
+  "bin": {
+    "ff-controller": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^0.1.2",
+    "ts-morph": "^21.0.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.24"
+  }
+}

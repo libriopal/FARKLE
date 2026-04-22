@@ -1,0 +1,110 @@
+==================================================
+CONTROLLER SYSTEM FILE MAP
+==================================================
+
+[FILE]
+Path: /controller/ff-config.json
+Purpose: Static mapping linking PROMPT_ID variables deterministically tracking specific target src scopes.
+Used By: /controller/controller.ts
+Depends On: N/A
+
+---
+[FILE]
+Path: /controller/controller.ts
+Purpose: Main CLI entry point. Executes stringent environment dependency checks iteratively (Pre-Flight) mapping to the orchestrator layer.
+Used By: CLI directly.
+Depends On:
+- /controller/validator.ts
+- /controller/orchestrator.ts
+- /controller/fileManager.ts
+- fs, path
+
+---
+[FILE]
+Path: /controller/orchestrator.ts
+Purpose: Central workflow integrating git states, initial AI genesis tasks, test invocations, atomic rollback states, and completion commits globally.
+Used By: /controller/controller.ts
+Depends On:
+- /controller/fileManager.ts
+- /controller/gitService.ts
+- /controller/aiService.ts
+- /controller/pipelineValidator.ts
+- /controller/repairEngine.ts
+
+---
+[FILE]
+Path: /controller/fileManager.ts
+Purpose: Disk constraint utility resolving atomic file operations bridging temp staging matrices bounding locks. 
+Used By: /controller/orchestrator.ts
+Depends On:
+- fs, path
+
+---
+[FILE]
+Path: /controller/pipelineValidator.ts
+Purpose: Sequenced script executing bash arrays natively checking TypeScript outputs targeting scoped `.temp` bindings replacing logic correctly locally and rolling back seamlessly.
+Used By: /controller/orchestrator.ts, /controller/repairEngine.ts
+Depends On:
+- /controller/validator.ts
+- fs, path
+
+---
+[FILE]
+Path: /controller/repairEngine.ts
+Purpose: Max. 5 cycle multi-step heuristic auto-fixing framework applying AST checks then AI layers catching looping arrays cryptographically avoiding redundant hits statically bounds targets.
+Used By: /controller/orchestrator.ts
+Depends On:
+- /controller/logger.ts
+- /controller/deterministicRepair.ts
+- /controller/aiService.ts
+- /controller/pipelineValidator.ts
+
+---
+[FILE]
+Path: /controller/deterministicRepair.ts
+Purpose: Encapsulates static programmatic repair tactics utilizing native parser objects specifically targeting syntax fixes cheaply token-bound utilizing 0 APIs directly isolating node states iteratively parsing correctly.
+Used By: /controller/repairEngine.ts
+Depends On:
+- ts-morph
+
+---
+[FILE]
+Path: /controller/aiService.ts
+Purpose: Native AI bindings implementing `google/genai` explicitly controlling target diff scopes bridging direct text streams optimally replacing broken bounds securely natively isolating code.
+Used By: /controller/orchestrator.ts, /controller/repairEngine.ts
+Depends On:
+- @google/genai
+
+---
+[FILE]
+Path: /controller/gitService.ts
+Purpose: Tracks clean histories natively preventing dirty trees and pushes branch architectures silently capturing log states dynamically. 
+Used By: /controller/orchestrator.ts
+Depends On:
+- /controller/validator.ts
+
+---
+[FILE]
+Path: /controller/validator.ts
+Purpose: Contains the core `safeSpawn` method securing external processes statically targeting pure native shell bindings explicitly omitting external string injections preventing local arbitrary evaluation locally blocking malicious nodes.
+Used By: /controller/controller.ts, /controller/gitService.ts, /controller/pipelineValidator.ts
+Depends On:
+- child_process
+
+---
+[FILE]
+Path: /controller/logger.ts
+Purpose: Aggregates metrics and writes explicit traces validating hashes across structural strings directly parsing states securing escalation nodes correctly storing data.
+Used By: /controller/repairEngine.ts
+Depends On:
+- fs, path, crypto
+
+==================================================
+EXECUTION FLOW SUMMARY
+==================================================
+1. Pipeline initialization maps identity targets via json configuration locally triggering deterministic bounds capturing active files.
+2. Initial generation targets bound temporary `.ts` output locations isolating direct structural access protecting underlying environments physically.
+3. Bash validation matrices hit alongside specialized isolated testing protocols mapping local targets seamlessly bridging testing outcomes safely capturing failed matrices accurately bounding state constraints correctly mapping testing outputs returning error states directly replacing original target safely catching output anomalies natively restoring state gracefully bounding limits efficiently saving original contents accurately ensuring absolute environment stability efficiently catching outputs securely isolating memory.
+4. Auto-repair processes initialize strict loops attempting structural mapping edits natively parsing syntax before defaulting diff matrices optimizing LLM utilization securing loop bounds structurally tracking file structures cryptographically caching anomalies exiting limits sequentially parsing outputs.
+5. Successful arrays write backups atomically substituting targets tracking total dependencies evaluating structural mappings enforcing pure node constraints replacing origin limits gracefully managing file transitions securely completing tasks bounding testing evaluations successfully confirming state safely committing branch origins cleanly pushing remotes structurally.
+6. Failures exceeding attempts securely backup final log iterations dumping native branches securely capturing isolated instances tracking errors locally outputting records gracefully ensuring code continuity safely isolating state securely logging matrices bypassing PR constraints explicitly capturing traces seamlessly exiting pipeline natively capturing structural matrices.

@@ -1,0 +1,182 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D3 — useChat.ts + ChatPanel.tsx (E2E Encrypted Chat)
+Block D: Screens + Auth | Prompt 14 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript/React engineer. Complete files, no truncation.
+Strict mode, no any. Web Crypto API for E2E encryption.
+motion/react for animations. Two files this prompt.
+
+USER MESSAGE:
+Generate E2E encrypted lobby chat system.
+
+─────────────────────────────────────────────
+FILE 1 — apps/client/src/hooks/useChat.ts (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types (ChatMessage, CHAT_MAX_MESSAGES,
+  CHAT_MAX_LENGTH, UserProfile)
+- Uses: Web Crypto API (ECDH key exchange + AES-GCM encryption)
+- Wires to WebSocket in Update 07 — for now expose sendRaw callback prop
+- nanoid() for message IDs
+
+ENCRYPTION ARCHITECTURE:
+  Key Exchange: ECDH (P-256 curve)
+  Message Encryption: AES-GCM (256-bit derived key)
+  Each player generates an ECDH key pair on joining a room.
+  Public keys are exchanged via WebSocket (plaintext — this is safe).
+  Shared AES key derived via ECDH + HKDF.
+  Each message uses a unique 96-bit IV.
+
+HOOK SIGNATURE:
+  export function useChat(options: {
+    roomId: string;
+    localProfile: UserProfile;
+    onSendRaw: (payload: object) => void; // WebSocket send callback
+  }): {
+    messages: ChatMessage[];
+    sendMessage: (plaintext: string) => Promise<void>;
+    receiveEncryptedMessage: (msg: ChatMessage) => Promise<void>;
+    receivePublicKey: (senderId: string, publicKeyJwk: JsonWebKey) => Promise<void>;
+    getPublicKeyJwk: () => Promise<JsonWebKey>;
+    clearMessages: () => void;
+    isReady: boolean; // true once key pair generated
+  }
+
+KEY PAIR GENERATION (on mount):
+  const keyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveKey']
+  );
+  Store in useRef (never in state — avoid serialization).
+  Export public key as JWK for sharing:
+    crypto.subtle.exportKey('jwk', keyPair.publicKey)
+
+SHARED KEY DERIVATION:
+  When receiving another player's public key:
+    import their JWK via crypto.subtle.importKey
+    derive shared key via ECDH:
+      crypto.subtle.deriveKey(
+        { name: 'ECDH', public: theirPublicKey },
+        localPrivateKey,
+        { name: 'AES-GCM', length: 256 },
+        false, ['encrypt', 'decrypt']
+      )
+    store in Map<senderId, CryptoKey>
+  Use a single shared key for the room (all players derive same key
+  by convention — in prod use a room key distribution mechanism).
+  For simplicity: use first-joined player's derived key for all room messages.
+
+ENCRYPT MESSAGE:
+  async function encrypt(plaintext: string, key: CryptoKey):
+    Promise<{ ciphertext: string; iv: string }>
+    iv = crypto.getRandomValues(new Uint8Array(12))
+    encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(plaintext)
+    )
+    return {
+      ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+      iv: btoa(String.fromCharCode(...iv))
+    }
+
+DECRYPT MESSAGE:
+  async function decrypt(ciphertext: string, iv: string, key: CryptoKey):
+    Promise<string>
+    ivBytes = Uint8Array.from(atob(iv), c => c.charCodeAt(0))
+    ctBytes = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0))
+    decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: ivBytes },
+      key,
+      ctBytes
+    )
+    return new TextDecoder().decode(decrypted)
+
+sendMessage(plaintext):
+  1. Validate: plaintext.length <= CHAT_MAX_LENGTH
+  2. Encrypt with room shared key
+  3. Create ChatMessage with:
+      senderArtSnippet: first 3 lines of localProfile.asciiArt
+      encryptedContent, iv from encrypt()
+  4. Call onSendRaw({ type: 'CHAT_MESSAGE', message: chatMsg })
+  5. Add to local messages array (optimistic)
+
+receiveEncryptedMessage(msg):
+  1. Decrypt msg.encryptedContent using stored key for msg.senderId
+  2. If decryption fails: show "[encrypted]" as content
+  3. Add decrypted version to messages array
+  4. Trim to CHAT_MAX_MESSAGES (remove oldest)
+
+─────────────────────────────────────────────
+FILE 2 — apps/client/src/components/ChatPanel.tsx (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types, useChat hook result (passed as props)
+- Positioned bottom-left of screen, slightly transparent
+- motion/react for animations
+
+PROPS:
+  interface ChatPanelProps {
+    messages: ChatMessage[];
+    localPlayerId: string;
+    onSend: (text: string) => void;
+    isReady: boolean;
+  }
+
+VISUAL SPEC:
+  CONTAINER:
+    Position: fixed bottom-4 left-4 z-20
+    Width: 280px, max-height: 340px
+    Background: rgba(9,9,11,0.75) = zinc-950 at 75% opacity
+    backdrop-blur-sm
+    Border: zinc-700, rounded-2xl
+    Collapsed by default — expand on click of tab handle
+
+  COLLAPSE TOGGLE:
+    Tab at top-left: "💬 CHAT" label
+    Click to expand/collapse with Motion height animation
+    When collapsed: show only last message as 1-line preview
+
+  MESSAGE LIST (scrollable, max-height: 240px):
+    Each message row:
+      Left: ASCII art snippet in <pre> tag
+        Width: 48px, height: 48px, overflow hidden
+        Font: font-mono text-[7px] (very small for thumbnail)
+        Color: senderColor from USERNAME_COLOR_HEX
+      Middle:
+        Username: font-bold, colored via USERNAME_COLOR_CLASSES[senderColor]
+        Message: text-zinc-300 text-sm, word-wrap break-word
+        Timestamp: text-zinc-600 text-[10px]
+    Local player messages: right-aligned, amber-900/20 bg
+    Remote messages: left-aligned, transparent bg
+
+  NEW MESSAGE ANIMATION:
+    Each new message: y: 20 → 0, opacity: 0 → 1, duration 0.2s
+
+  INPUT ROW (bottom of panel):
+    Text input: bg-zinc-800 border-zinc-600 rounded-lg
+    Placeholder: "Message..." (disabled text if !isReady: "Connecting...")
+    Send on Enter or send button
+    Max 280 chars, show counter at 240+
+
+  EMPTY STATE:
+    "No messages yet. Say hello! 👋" in zinc-600
+
+Write FILE 1 COMPLETE, then FILE 2 COMPLETE, then Integration Note.
+Next: D4 — AccountTab.tsx + SettingsModal.tsx
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

@@ -1,0 +1,137 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D4 — AccountTab.tsx + SettingsModal.tsx (NEW)
+Block D: Screens + Auth | Prompt 15 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete files, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+
+USER MESSAGE:
+Generate AccountTab.tsx and SettingsModal.tsx.
+SettingsModal has 4 tabs: THEME | AUDIO | SANDBOX | ACCOUNT.
+ACCOUNT tab is new and added to the left of the close button.
+
+─────────────────────────────────────────────
+FILE 1 — apps/client/src/components/AccountTab.tsx (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types (UserProfile, UsernameColor,
+  USERNAME_COLOR_HEX, USERNAME_COLOR_CLASSES)
+- Imports: ../hooks/useUserProfile (useUserProfile)
+- Used inside SettingsModal as the ACCOUNT tab content
+
+PROPS:
+  interface AccountTabProps {
+    profile: UserProfile | null;
+    onLogout: () => void;
+  }
+
+STATES:
+  - Not logged in: show login prompt button (opens AuthScreen)
+  - Logged in: show profile viewer + edit mode toggle
+
+LOGGED-IN VIEW:
+
+  PROFILE DISPLAY:
+    Large <pre> of asciiArt, colored via USERNAME_COLOR_HEX[color]
+    font-mono, text-sm
+    Username below in large font-black text, colored via
+    USERNAME_COLOR_CLASSES[color]
+
+  EDIT TOGGLE:
+    "Edit Profile" button → enters edit mode
+    In edit mode, show:
+      ASCII art textarea (same spec as AuthScreen)
+      Color picker (6 colored circles)
+      Username input
+      "Save Changes" + "Cancel" buttons
+      On save: call updateProfile() from useUserProfile
+      Show success flash or error message
+
+  WALLET DISPLAY (below profile):
+    Shows FD and PDX balances from useWallet
+    "💨 {wallet.fd} FD" and "◆ {wallet.pdx} PDX" badges
+    styled with FD_COLORS and PDX_COLORS
+
+  LOGOUT BUTTON:
+    "Sign Out" — zinc-700 bg, zinc-300 text
+    On click: call logout() + onLogout()
+
+NOT LOGGED-IN VIEW:
+  "No account" text in zinc-500
+  "Sign In / Register" amber-500 button
+  On click: parent needs to navigate to AuthScreen
+    emit via onLogout() which App.tsx uses to show AuthScreen
+
+─────────────────────────────────────────────
+FILE 2 — apps/client/src/components/SettingsModal.tsx (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- This is the gear modal referenced in THEME_REFERENCE_v1.txt
+- Trigger: ⚙ button in TopBar of GameScreen
+- Tabs: THEME | AUDIO | SANDBOX | ACCOUNT
+- ACCOUNT tab is positioned to the LEFT of the × close button
+
+PROPS:
+  interface SettingsModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    profile: UserProfile | null;
+    onLogout: () => void;
+  }
+
+LAYOUT:
+  Overlay: fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50
+  Click overlay to close
+  Modal panel: bg-zinc-900 border border-zinc-700
+    Mobile: slides up from bottom, rounded-t-2xl
+    Desktop: centered, max-w-md, rounded-2xl
+
+  TAB ROW:
+    [THEME] [AUDIO] [SANDBOX] [ACCOUNT] [×]
+    Tab order left to right, with × at far right
+    Active tab: amber-400 bottom border, text-white
+    Inactive: text-zinc-500, hover:text-zinc-300
+
+    ACCOUNT tab is directly to the left of the × close button.
+    This is the only layout constraint from the spec.
+
+  THEME TAB CONTENT:
+    Two cards side by side: DARK and LIGHT
+    Each card: preview swatch + label
+    DARK swatch: bg-zinc-950 rounded
+    LIGHT swatch: bg-slate-100 rounded
+    Active card: amber-400 border, glow
+    On click: call useTheme().setTheme()
+
+  AUDIO TAB CONTENT:
+    "Audio settings coming soon" placeholder
+    Muted zinc-500 text
+
+  SANDBOX TAB CONTENT:
+    "Sandbox mode — coming soon" placeholder
+    Note: SANDBOX_README.md describes full system (future build)
+
+  ACCOUNT TAB CONTENT:
+    <AccountTab profile={profile} onLogout={onLogout} />
+
+  ANIMATIONS:
+    Modal entrance: y: 100% → 0 (mobile) or scale 0.9→1 (desktop)
+    Tab content switch: AnimatePresence, fade + x slide
+
+Write FILE 1 COMPLETE, then FILE 2 COMPLETE, then Integration Note.
+Next: D5 — LobbySettings.tsx + HostLobbyPanel.tsx
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

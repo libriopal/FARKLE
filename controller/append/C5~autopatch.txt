@@ -1,0 +1,73 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT C5 — EnergyMinimap.tsx (NEW)
+Block C: UI Components | Prompt 11 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+
+USER MESSAGE:
+Generate apps/client/src/components/EnergyMinimap.tsx — compact
+multiplayer energy overview panel showing all players' energy bars.
+Based on the UI spec from prime_frenzy_game_spec.txt.
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types, EnergyMeter component
+- Used by: VSGameScreen.tsx, RallyGameScreen.tsx, HeistGameScreen.tsx
+
+PROPS:
+  interface EnergyMinimapProps {
+    players: Array<{
+      id: string;
+      name: string;
+      energy: number;
+      isAnchor: boolean;
+      catchupActive: boolean;
+      color: UsernameColor;  // from UserProfile
+    }>;
+    globalMode: GlobalEnergyMode;
+    localPlayerId: string;
+  }
+
+VISUAL SPEC (from game spec UI Clarity Guide):
+
+  GLOBAL HEADER:
+    "[MODE: FRENZY]" or "[MODE: PRIME]"
+    FRENZY: rose-500 text, gold glow shadow
+    PRIME: sky-400 text
+    If Frenzy: "Triggered by {anchorName}" in zinc-400 text-xs below
+
+  PLAYER ROWS (one per player):
+    Player name (truncated 12 chars) + UsernameColor dot
+    Compact EnergyMeter (compact=true)
+    Status: LOW | CRITICAL | ANCHOR badges (text-xs)
+    Highest energy player: amber-500 highlighted row bg
+
+  LAYOUT:
+    Dark panel (zinc-900 bg, border border-zinc-700 rounded-xl)
+    Width: 220px (fixed)
+    Each row: ~36px height
+    Max 4 rows (max player count)
+
+  SORT ORDER:
+    Highest energy first
+    Local player always highlighted with "You" badge
+
+  TRANSITION:
+    Rows reorder smoothly when energy rankings change
+    Use Motion layout prop on each row for smooth reorder animation
+
+Write FILE COMPLETE then brief Integration Note.
+Next prompt: D1 — Types Patch 2 + useUserProfile.ts (Auth system)
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

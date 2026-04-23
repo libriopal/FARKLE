@@ -1,0 +1,216 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT A3 — farkleScorer.ts: Wild Blocker Resolution
+Block A: Foundation | Prompt 3 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript engineer on a monorepo casino puzzle game.
+Complete files, zero truncation. Strict mode. No any. JSDoc every export.
+ALL 16 existing test cases must still pass after this patch.
+
+USER MESSAGE:
+
+Patch packages/engine/src/farkleScorer.ts to support Wild Blocker
+auto-resolution and Wild Scatter scoring.
+
+MONOREPO CONTEXT:
+- File: packages/engine/src/farkleScorer.ts
+- Imports from: @farkle/shared/types
+- Existing public API: scoreFarkle(faces: DieFace[], threeOnesScore?, singleOneScore?)
+- The chainIndex O(1) lookup table must remain intact
+- All 16 required test cases must still pass (listed at bottom)
+
+════════════════════════════════════════════════
+SECTION 1 — EXTENDED TYPE FOR WILD INPUT
+════════════════════════════════════════════════
+
+The scorer must now accept chains that contain Wild Blockers.
+Wild Blockers are represented as the literal string 'WILD' in the
+faces array passed to the scorer.
+
+ADD new union type (internal to this file, or imported from shared):
+  type FaceOrWild = DieFace | 'WILD';
+
+════════════════════════════════════════════════
+SECTION 2 — resolveWilds() FUNCTION
+════════════════════════════════════════════════
+
+/**
+ * Resolves Wild Blocker placeholders in a face array to the actual
+ * DieFace values that produce the maximum possible score.
+ *
+ * Uses brute-force substitution — tries all 6^n combinations
+ * where n = number of 'WILD' entries. Maximum n=6 (full wild chain),
+ * worst case 6^6 = 46,656 lookups — negligible for real-time use.
+ *
+ * @param faces - Array of die faces and 'WILD' placeholders
+ * @param threeOnesScore - Custom score for Three 1s (default 1000)
+ * @param singleOneScore - Custom score for single 1 (default 100)
+ * @returns Object with resolvedFaces (all wilds replaced) and maxScore
+ */
+export function resolveWilds(
+  faces: FaceOrWild[],
+  threeOnesScore = 1000,
+  singleOneScore = 100
+): { resolvedFaces: DieFace[]; maxScore: number } {
+  // If no wilds, return immediately
+  const wildIndices = faces
+    .map((f, i) => (f === 'WILD' ? i : -1))
+    .filter(i => i !== -1);
+
+  if (wildIndices.length === 0) {
+    const resolved = faces as DieFace[];
+    return {
+      resolvedFaces: resolved,
+      maxScore: scoreFarkleInternal(resolved, threeOnesScore, singleOneScore),
+    };
+  }
+
+  // Build all combinations: for each wild position, try faces 1–6
+  const FACES: DieFace[] = [1, 2, 3, 4, 5, 6];
+  let bestScore = 0;
+  let bestFaces: DieFace[] = faces.map(f => (f === 'WILD' ? 1 : f)) as DieFace[];
+
+  // Generate all n-tuples of [1..6] for n wilds
+  function recurse(depth: number, current: DieFace[]): void {
+    if (depth === wildIndices.length) {
+      const candidate = [...faces] as DieFace[];
+      wildIndices.forEach((idx, i) => { candidate[idx] = current[i]; });
+      const score = scoreFarkleInternal(candidate, threeOnesScore, singleOneScore);
+      if (score > bestScore) {
+        bestScore = score;
+        bestFaces = [...candidate];
+      }
+      return;
+    }
+    for (const face of FACES) {
+      recurse(depth + 1, [...current, face]);
+    }
+  }
+
+  recurse(0, []);
+  return { resolvedFaces: bestFaces, maxScore: bestScore };
+}
+
+════════════════════════════════════════════════
+SECTION 3 — UPDATE scoreFarkle() PUBLIC API
+════════════════════════════════════════════════
+
+UPDATE the existing scoreFarkle() function signature and internals:
+
+/**
+ * Scores a Farkle chain. Accepts die faces and optional Wild Blocker
+ * placeholders ('WILD'). Wilds auto-resolve to maximize score.
+ *
+ * @param faces - Die faces in the chain (may include 'WILD')
+ * @param threeOnesScore - Override for Three 1s score (default 1000)
+ * @param singleOneScore - Override for single 1 score (default 100)
+ * @returns ScorerResult with score, combo name, flags, and resolvedFaces
+ */
+export function scoreFarkle(
+  faces: FaceOrWild[],
+  threeOnesScore = 1000,
+  singleOneScore = 100
+): ScorerResult
+
+Where ScorerResult gains one new optional field:
+  resolvedFaces?: DieFace[]
+  — The actual faces after wild substitution.
+  — Only present if any 'WILD' was in input.
+  — Used by UI to show "Wild resolved as Face 2" preview.
+
+INTERNAL IMPLEMENTATION:
+  1. If faces contains any 'WILD':
+       const { resolvedFaces, maxScore } = resolveWilds(faces, ...)
+       Run normal scoring logic with resolvedFaces
+       Include resolvedFaces in result
+  2. If no wilds: existing logic unchanged (chainIndex O(1) lookup)
+
+════════════════════════════════════════════════
+SECTION 4 — wildScatterScore() NEW EXPORT
+════════════════════════════════════════════════
+
+/**
+ * Scores a Wild Scatter detonation event.
+ * Only Face 1 (Red) and Face 5 (Blue) tiles award bonus points.
+ * All other destroyed faces award 0 bonus (but are still destroyed).
+ *
+ * @param destroyedFaces - All die faces destroyed by the scatter
+ * @returns Total scatter bonus score
+ */
+export function wildScatterScore(destroyedFaces: DieFace[]): number {
+  return destroyedFaces.reduce((total, face) => {
+    if (face === 1) return total + 100;
+    if (face === 5) return total + 50;
+    return total;
+  }, 0);
+}
+
+════════════════════════════════════════════════
+SECTION 5 — scoreFarkleInternal() RENAME
+════════════════════════════════════════════════
+
+The existing internal scoring logic (chainIndex lookup) should be
+extracted into a private function scoreFarkleInternal(faces: DieFace[])
+that the public scoreFarkle() calls after wild resolution.
+This is a refactor — no behavior changes to the scoring logic itself.
+
+════════════════════════════════════════════════
+SECTION 6 — THE 16 REQUIRED TEST CASES
+════════════════════════════════════════════════
+
+These must still pass. Do not change any scoring logic:
+  [1]           → 100
+  [5]           → 50
+  [3]           → 0
+  [1,1,1]       → 1000
+  [2,2,2]       → 200
+  [6,6,6]       → 600
+  [1,1,1,5]     → 1050
+  [1,1,1,5,5]   → 1100
+  [1,2,3,4,5,6] → 1500
+  [1,1,1,2,2,2] → 2500
+  [1,1,1,1]     → 1000
+  [5,5,5,5,5]   → 2000
+  [3,3,3,3,3,3] → 3000
+  [1,1,2,2,3,3] → 1500
+  [1,1,1,1,2,2] → 1500
+  [2,3,4]       → 0
+
+ADDITIONAL WILD RESOLUTION TESTS:
+  resolveWilds([1,'WILD',3,4,5,6]).resolvedFaces → [1,2,3,4,5,6]
+  resolveWilds([1,'WILD',3,4,5,6]).maxScore → 1500 (Straight)
+  resolveWilds(['WILD','WILD','WILD']).maxScore → 1000 (Three 1s)
+  resolveWilds([1,1,'WILD',5]).maxScore → 1050 (Three 1s + Single 5)
+
+════════════════════════════════════════════════
+OUTPUT INSTRUCTIONS
+════════════════════════════════════════════════
+
+Output complete patched farkleScorer.ts.
+No truncation — output full file including chainIndex, buildScoreTable,
+lookupScore, and all existing logic.
+resolveWilds must be exported.
+wildScatterScore must be exported.
+scoreFarkle signature updated to accept FaceOrWild[].
+All 16 + 4 test cases noted in comments at end of file.
+Write FILE COMPLETE then Integration Note.
+
+INTEGRATION NOTE must include:
+- scoreFarkle new signature: FaceOrWild[] input
+- resolveWilds export signature
+- wildScatterScore export signature
+- ScorerResult.resolvedFaces new field
+- All 16 existing tests confirmed passing
+- Next prompt: A4 — monteCarlo.ts + rtpConfig.ts patch
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

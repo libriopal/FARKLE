@@ -1,0 +1,121 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D2 — AuthScreen.tsx (NEW)
+Block D: Screens + Auth | Prompt 13 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+
+USER MESSAGE:
+Generate apps/client/src/screens/AuthScreen.tsx — login and
+register screen with ASCII art profile creation.
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types (UserProfile, UsernameColor,
+  USERNAME_COLOR_HEX, USERNAME_COLOR_CLASSES, DEFAULT_ASCII_THUMBNAILS)
+- Imports: ../hooks/useUserProfile (useUserProfile)
+- motion/react for animations
+- No React Router — screen shown/hidden by App.tsx state
+
+PROPS:
+  interface AuthScreenProps {
+    onAuthSuccess: (profile: UserProfile) => void;
+    onSkip?: () => void; // Allow playing as guest
+  }
+
+LOCAL STATE:
+  mode: 'LOGIN' | 'REGISTER' (tab switch)
+  username, password, confirmPassword: string inputs
+  selectedColor: UsernameColor (default 'blue')
+  asciiArt: string (default: DEFAULT_ASCII_THUMBNAILS.dice)
+  error: string | null
+  loading: boolean
+
+LAYOUT (full screen, centered card):
+
+  ┌──────────────────────────────────────┐
+  │  FARKLE FRENZY — ASCII HEADER ART    │
+  │  [LOGIN] [REGISTER] tabs             │
+  ├──────────────────────────────────────┤
+  │  USERNAME INPUT                      │
+  │  PASSWORD INPUT                      │
+  │  (REGISTER only:)                    │
+  │    CONFIRM PASSWORD                  │
+  │    COLOR PICKER (6 colored buttons)  │
+  │    ASCII ART TEXTAREA + PREVIEW      │
+  │    PRESET THUMBNAILS (4 buttons)     │
+  ├──────────────────────────────────────┤
+  │  [SUBMIT BUTTON]                     │
+  │  [PLAY AS GUEST] (small, zinc-500)   │
+  │  Error message (red, animated)       │
+  └──────────────────────────────────────┘
+
+HEADER ASCII ART (rendered as <pre> at top of card):
+  ╔═══════════════════╗
+  ║  F A R K L E      ║
+  ║  F R E N Z Y  🎲  ║
+  ╚═══════════════════╝
+Color: amber-400, font-mono
+
+TABS (LOGIN / REGISTER):
+  Amber-500 underline on active tab
+  Animate underline position with Motion layout
+
+COLOR PICKER (Register only):
+  6 circular buttons, one per UsernameColor
+  Size: 32px each, rounded-full
+  Active: ring-4 ring-white scale-110
+  Background: matches USERNAME_COLOR_HEX value
+  On click: setSelectedColor
+
+ASCII ART EDITOR (Register only):
+  Left: <textarea> with monospace font (font-mono)
+    placeholder: "Draw your thumbnail here\nMax 8 lines × 12 chars"
+    rows=8, maxLength=96 (8 lines × 12 chars)
+    dark bg (zinc-800), border zinc-600
+    onChange: update asciiArt state
+
+  Right: LIVE PREVIEW
+    <pre> tag rendering current asciiArt
+    Text color: USERNAME_COLOR_HEX[selectedColor]
+    font-mono, text-sm
+    Background: zinc-900, rounded-lg, p-2
+    Label: "PREVIEW" in zinc-500 above
+
+  PRESET THUMBNAILS (4 small buttons):
+    Renders DEFAULT_ASCII_THUMBNAILS keys as buttons
+    On click: setAsciiArt(DEFAULT_ASCII_THUMBNAILS[key])
+    Each shows first line of the thumbnail as button label
+
+FORM SUBMISSION:
+  Login: call login(username, password)
+  Register: call register(username, password, selectedColor, asciiArt)
+  On success: call onAuthSuccess(activeProfile)
+  On error: setError(error message), shake card via Motion
+
+PLAY AS GUEST:
+  Small button below submit: "Continue as Guest →"
+  Calls onSkip() if provided
+  Creates a temporary guest profile (no persistence):
+    { id: 'guest-' + nanoid(), username: 'Guest', color: 'blue',
+      asciiArt: DEFAULT_ASCII_THUMBNAILS.dice, ... }
+
+ANIMATION:
+  Card entrance: y: 30 → 0, opacity: 0 → 1, spring
+  Error shake: x: [0, -12, 12, -8, 8, 0] over 400ms
+  Tab switch: AnimatePresence on form content, slide left/right
+
+Write FILE COMPLETE then brief Integration Note.
+Next: D3 — useChat.ts + ChatPanel.tsx
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

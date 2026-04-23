@@ -1,0 +1,127 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT C4 — VaultDisplay.tsx (NEW) + HeistPanel.tsx (NEW)
+Block C: UI Components | Prompt 10 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+Generate two files in this prompt.
+
+USER MESSAGE:
+Generate two new components for Heist mode.
+
+─────────────────────────────────────────────
+FILE 1 — apps/client/src/components/VaultDisplay.tsx
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types (HeistState, Player, VAULT_THRESHOLD,
+  HEIST_WINDOW_MS, UsernameColor, USERNAME_COLOR_CLASSES)
+- Used by: HeistPanel.tsx, HeistGameScreen.tsx
+
+PROPS:
+  interface VaultDisplayProps {
+    heistState: HeistState;
+    players: Player[];
+    localPlayerId: string;
+    onInitiateHeist: () => void;
+    onBlockHeist: () => void;
+    localEnergy: number;
+    localRole?: RallyRole;
+  }
+
+VISUAL SPEC:
+  VAULT VALUE: Large centered number in emerald-400
+    Font: font-black text-4xl
+    Label above: "💰 VAULT" in gold (amber-400), tracking-widest uppercase
+    Animate value changes: Motion animate={{ scale: [1, 1.1, 1] }} on change
+
+  THRESHOLD PROGRESS BAR:
+    Shows vault / VAULT_THRESHOLD as percentage
+    Colors: emerald-600 fill, zinc-800 track
+    Label: "{vault} / {VAULT_THRESHOLD} to HEIST"
+    When vault >= VAULT_THRESHOLD: bar turns amber, "⚡ HEIST AVAILABLE" badge pulses
+
+  PERSONAL CONTRIBUTIONS TABLE:
+    Each player: avatar color dot + name + contribution %
+    Contribution % = personalScores[id] / (vault + sum of personalScores) * 100
+    Sorted by contribution descending
+    Local player row: highlighted with amber-900/20 bg
+
+  HEIST WINDOW COUNTDOWN (when heistState.activeHeist !== null):
+    SVG ring drain (same pattern as bomb fuse ring)
+    Duration: HEIST_WINDOW_MS (5000ms)
+    Color: rose-500 draining to empty
+    Center: initiator's name + "HEISTING!"
+    Pulse effect: rapid border flash on outer container
+
+  ROLE MODIFIER BADGES:
+    If Archivist in session: "🛡 Vault shielded: {Math.round(vault * 0.2)} protected"
+    If Conductor in session: "⚡ Vault boost +10% active" (when Conductor is active)
+
+  HEIST BUTTON:
+    Visible when betrayalUnlocked[localPlayerId] === true
+    Text: "🗡 INITIATE HEIST"
+    Style: rose-600 bg, white text, font-black
+    Disabled (zinc-700) if localEnergy < HEIST_ENERGY_COST
+    Tooltip when disabled: "Need 50 energy to heist"
+
+  BLOCK BUTTON:
+    Visible only during active HeistWindow && initiatorId !== localPlayerId
+    Text: "🛡 BLOCK HEIST"
+    Style: blue-700 bg, white text
+    Disappears if already in blockerIds
+
+Write FILE 1 COMPLETE then proceed to FILE 2.
+
+─────────────────────────────────────────────
+FILE 2 — apps/client/src/components/HeistPanel.tsx
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Replaces BankBar at the bottom of screen in Heist modes
+- Imports VaultDisplay, EnergyMeter
+
+PROPS:
+  interface HeistPanelProps {
+    heistState: HeistState;
+    personalScore: number;
+    energy: number;
+    globalMode: GlobalEnergyMode;
+    isAnchor: boolean;
+    catchupActive: boolean;
+    role?: RallyRole;
+    players: Player[];
+    localPlayerId: string;
+    onInitiateHeist: () => void;
+    onBlockHeist: () => void;
+  }
+
+LAYOUT (bottom bar, ~80px height):
+
+  [PERSONAL: 1,234] | [VAULT DISPLAY (centered)] | [ENERGY METER]
+
+  Left section (zinc-900 bg, border-r):
+    Label: "PERSONAL" in zinc-500 uppercase xs
+    Value: personalScore in white font-black text-2xl
+
+  Center section (flex-1):
+    <VaultDisplay /> rendered with all props passed through
+
+  Right section (w-48, border-l):
+    <EnergyMeter energy={energy} ... compact />
+
+Write FILE 2 COMPLETE then Integration Note.
+Next: C5 — EnergyMinimap.tsx (multiplayer energy overview)
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

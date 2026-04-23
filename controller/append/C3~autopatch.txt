@@ -1,0 +1,79 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT C3 — Tile.tsx: Wild Blocker Visual Branch (PATCH)
+Block C: UI Components | Prompt 9 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+This is a PATCH — add the Wild Blocker branch. Keep all existing
+visual branches (Stone, Ice, Lock, BOMB_STANDARD, BOMB_RAINBOW,
+normal 3D die). Do NOT change any existing rendering logic.
+
+USER MESSAGE:
+Patch apps/client/src/components/Tile.tsx — add Wild Blocker
+visual branch for cells with state === 'WILD'.
+
+MONOREPO CONTEXT:
+- Add branch BEFORE the default die render branch
+- CellState 'WILD' is new — tiles with this state are Wild Blockers
+- Import USERNAME_COLOR_HEX from @farkle/shared/types (for face color)
+- All existing branches (Stone, Ice, Lock, Bomb) unchanged
+
+WILD BLOCKER VISUAL SPEC:
+
+WHEN: cell.state === 'WILD' && cell.face !== null
+
+CONTAINER:
+  Same sizing as normal die tiles
+  Background: same color as the underlying die face
+    (use DieColor classes — e.g. face 1 = rose-500 bg)
+  Border: 2px solid white, border-radius: rounded-xl
+  Additional ring: rainbow glow animation
+
+RAINBOW RING ANIMATION:
+  Use CSS filter: hue-rotate with Motion animate
+  Keyframe: [0deg, 360deg] (full hue cycle)
+  Duration: 2s, repeat: Infinity, ease: linear
+  Applied via style prop: { filter: `hue-rotate(${angle}deg)` }
+  Use useMotionValue + useTransform OR simple Motion animate
+
+  Visual: the border ring appears to cycle through all colors
+  Implementation: wrap in motion.div with animate={{ filter }} prop
+
+CONTENT (instead of pip dots):
+  Large centered "F" character
+  Font: font-black
+  Size: text-2xl (scales with tile size)
+  Color: matches underlying face color (use USERNAME_COLOR_HEX[faceToColor(face)])
+    but slightly lighter (opacity-90)
+
+  Helper: faceToColor mapping
+    1→'red', 2→'orange', 3→'yellow', 4→'green', 5→'blue', 6→'purple'
+
+NO PIPS: Do not render pip dots for Wild state
+NO FACE NUMBER: Do not render the face number digit for Wild state
+   (the "F" replaces both pips and number)
+
+CHAIN INTERACTION:
+  pointer-events: normal (Wild tiles ARE chainable)
+  When isChained: show ring-4 ring-white (same as normal die)
+  Chain index badge: show normally (position in chain)
+  isAtCap dimming: applies normally (40% opacity when cap reached)
+
+LOCK ICON: Do not show lock icon — Wild is not a Lock Blocker
+
+Write complete patched Tile.tsx. All existing branches must be present.
+Write FILE COMPLETE then brief Integration Note.
+Next: C4 — VaultDisplay.tsx
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

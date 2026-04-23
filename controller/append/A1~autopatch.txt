@@ -1,0 +1,387 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT A1 — Types Patch 3 (Energy + Pools + Heist + Wild)
+Block A: Foundation | Prompt 1 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+You are an expert TypeScript engineer working on a monorepo casino puzzle game.
+Output complete files with zero truncation. TypeScript strict mode throughout.
+No implicit or explicit any. JSDoc every export. When told to PATCH, output
+additions only with clear "ADD AFTER [export name]:" markers.
+
+USER MESSAGE:
+
+Patch packages/shared/src/types.ts — additions only.
+DO NOT rewrite or remove any existing types.
+Output each addition with an "ADD AFTER [nearest existing export]:" marker.
+
+MONOREPO CONTEXT:
+- File: packages/shared/src/types.ts
+- All additions are named exports
+- Imported by: every file in packages/engine/src/ and apps/client/src/
+- Existing types already present: GameMode (6 values), CurrencyMode ('FD'|'PDX'),
+  UserProfile, ChatMessage, HostLobbyState, LobbySettings, Cell, DieFace,
+  DieColor, BlockerType, CellState, Player, GamePhase, ActiveBomb, ScorePopup,
+  RallyRole, RTPConfig, WalletTransaction, PlayerWallet, FD_COLORS, PDX_COLORS,
+  FD_ASCII_ICON, PDX_ASCII_ICON
+
+════════════════════════════════════════════════
+SECTION 1 — EXTEND EXISTING TYPES (patch markers)
+════════════════════════════════════════════════
+
+ADD AFTER GameMode type:
+  // Extend GameMode union to include Heist modes
+  // New values: 'HEIST_FREE' | 'HEIST_CASINO'
+  // Full union is now 8 values
+
+ADD AFTER CellState type:
+  // Add 'WILD' to CellState union
+  // Wild Blocker state — chainable, auto-optimizes scoring,
+  // renders as "F" with rainbow ring border
+
+════════════════════════════════════════════════
+SECTION 2 — ENERGY SYSTEM CONSTANTS
+════════════════════════════════════════════════
+
+ADD AFTER existing GAME_CONSTANTS or nearest constant block:
+
+/** Full energy range — 0 to MAX_ENERGY */
+export const MAX_ENERGY = 300;
+
+/** Threshold above which global mode switches to FRENZY */
+export const FRENZY_THRESHOLD = 150;
+
+/** PRIME mode: passive energy gain per second */
+export const PRIME_PASSIVE_GAIN = 5;
+
+/** PRIME mode: energy cost for a chain of length 2–5 */
+export const PRIME_CHAIN_SHORT = -10;
+
+/** PRIME mode: energy gain for a chain of length exactly 6 */
+export const PRIME_CHAIN_SIX = 10;
+
+/** PRIME mode: energy gain for a 6-chain that includes a Wild Blocker */
+export const WILD_CHAIN_SIX = 20;
+
+/** FRENZY mode: passive energy drain per second (normal) */
+export const FRENZY_DRAIN = 5;
+
+/**
+ * FRENZY mode: reduced passive drain when player energy is below
+ * CATCHUP_THRESHOLD — soft catch-up mechanic
+ */
+export const FRENZY_LOW_DRAIN = 3;
+
+/** Energy value below which catch-up mechanics activate */
+export const CATCHUP_THRESHOLD = 75;
+
+/** Bonus energy per chain when catch-up is active */
+export const CATCHUP_BONUS = 2;
+
+/** Energy cost to initiate a Heist in HEIST modes */
+export const HEIST_ENERGY_COST = 50;
+
+/** Number of Wild Blockers simultaneously on board to trigger scatter + Frenzy */
+export const WILD_BLOCKER_FRENZY_COUNT = 3;
+
+/** Duration of Heist countdown window in ms */
+export const HEIST_WINDOW_MS = 5000;
+
+/** Duration of board auto-launch countdown in Frenzy instability warning */
+export const FRENZY_FLICKER_MS = 2000;
+
+════════════════════════════════════════════════
+SECTION 3 — ENERGY STATE TYPES
+════════════════════════════════════════════════
+
+ADD AFTER FRENZY_FLICKER_MS:
+
+/** The two operational phases of the single shared energy meter */
+export type GlobalEnergyMode = 'PRIME' | 'FRENZY';
+
+/**
+ * Per-player energy state.
+ * Mode is GLOBAL (shared), value is LOCAL (per player).
+ */
+export interface EnergyState {
+  /** Current energy value 0–300 */
+  value: number;
+  /**
+   * The player who first crossed FRENZY_THRESHOLD this session.
+   * If this player drops below threshold, Frenzy becomes unstable.
+   */
+  isAnchor: boolean;
+  /**
+   * True when value < CATCHUP_THRESHOLD during FRENZY mode.
+   * Reduces drain rate and adds chain bonus.
+   */
+  catchupActive: boolean;
+}
+
+════════════════════════════════════════════════
+SECTION 4 — SIX-POOL ARCHITECTURE
+════════════════════════════════════════════════
+
+ADD AFTER EnergyState:
+
+/**
+ * Numeric representation of die pool entries.
+ * 0 = rock blocker placeholder (unplayable).
+ * 1–6 = die face values.
+ */
+export type DiePoolEntry = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * Numeric representation of wild pool entries.
+ * 0 = empty slot (plain die face, no overlay).
+ * 1 = Ice Blocker overlay.
+ * 2 = Lock Blocker overlay.
+ * 3 = Wild Blocker overlay.
+ */
+export type WildPoolEntry = 0 | 1 | 2 | 3;
+
+/**
+ * The six-pool state snapshot for persistence and provably fair verification.
+ * Each pool is an ordered array — draw order is index 0 first.
+ */
+export interface SixPoolSnapshot {
+  liveDie: DiePoolEntry[];
+  deadDie: DiePoolEntry[];
+  liveBlocker: number[];
+  deadBlocker: number[];
+  liveWild: WildPoolEntry[];
+  deadWild: WildPoolEntry[];
+}
+
+/** Configuration for a single pool's initial weighting */
+export interface PoolWeightConfig {
+  /** For wild pool: probability of each WildPoolEntry value */
+  wildWeights: { empty: number; ice: number; lock: number; wild: number };
+  /** For die pool: count of rock placeholders (0s) mixed in */
+  rockCount: number;
+}
+
+════════════════════════════════════════════════
+SECTION 5 — WILD BLOCKER STATE
+════════════════════════════════════════════════
+
+ADD AFTER SixPoolSnapshot:
+
+/**
+ * Extended cell data for a Wild Blocker tile.
+ * Wild Blockers are die faces with CellState === 'WILD'.
+ * They render as "F" with rainbow ring border.
+ * They auto-resolve to the highest-scoring face when included in a chain.
+ */
+export interface WildBlockerCell {
+  /** The underlying face value (used for scatter color matching) */
+  underlyingFace: DieFace;
+  /**
+   * The resolved face value after auto-optimization.
+   * Set at scoring time. Null until chain evaluation.
+   */
+  resolvedAs: DieFace | null;
+}
+
+════════════════════════════════════════════════
+SECTION 6 — ROUND PHASE
+════════════════════════════════════════════════
+
+ADD AFTER WildBlockerCell:
+
+/**
+ * The phase of the current game round.
+ * Distinct from GamePhase (which tracks UI/cascade state).
+ * RoundPhase tracks the strategic state of play.
+ */
+export type RoundPhase =
+  | 'ROLLING'        // Player is actively making chains
+  | 'BANKING'        // Auto-bank triggered, processing transfer
+  | 'FRENZY_ACTIVE'  // Global Frenzy mode — simultaneous play
+  | 'HEIST_WINDOW'   // Heist countdown active
+  | 'ROUND_END';     // Round complete, preparing next round
+
+/** What caused the current round to end */
+export type RoundEndReason =
+  | 'FARKLE'         // Chain scored 0
+  | 'SHORT_CHAIN'    // Chain length < 6 (auto-bank trigger)
+  | 'ENERGY_ZERO'    // Player energy hit 0 (auto-bank trigger)
+  | 'MANUAL_BANK';   // Player pressed Bank button
+
+════════════════════════════════════════════════
+SECTION 7 — HEIST STATE TYPES
+════════════════════════════════════════════════
+
+ADD AFTER RoundEndReason:
+
+/**
+ * An active Heist window initiated by one player.
+ * Other players have HEIST_WINDOW_MS to block it.
+ */
+export interface HeistWindow {
+  /** ID of the player who initiated the heist */
+  initiatorId: string;
+  /** Milliseconds remaining in the countdown */
+  countdownMs: number;
+  /** IDs of players who have chosen to block */
+  blockerIds: string[];
+  /** Timestamp when heist was initiated (for server resolution) */
+  startedAt: number;
+}
+
+/**
+ * Full Heist mode state — replaces the simple banked/unbanked split.
+ * Only present when GameMode is 'HEIST_FREE' or 'HEIST_CASINO'.
+ */
+export interface HeistState {
+  /** The shared vault value all players are building toward */
+  vault: number;
+  /**
+   * Each player's personal score (the non-vaulted 30% portion).
+   * Key = player ID.
+   */
+  personalScores: Record<string, number>;
+  /**
+   * Fraction of each scored chain that goes to the vault.
+   * Default: VAULT_SPLIT (0.70). Remainder goes to personal score.
+   */
+  vaultSplit: number;
+  /**
+   * Whether each player has met the dual betrayal threshold.
+   * Requires: vault >= VAULT_THRESHOLD AND player energy >= HEIST_ENERGY_COST.
+   * Key = player ID.
+   */
+  betrayalUnlocked: Record<string, boolean>;
+  /** Active heist window, or null if no heist in progress */
+  activeHeist: HeistWindow | null;
+  /**
+   * Number of times vault has been successfully heisted this session.
+   * Vault resets to 0 after each successful heist.
+   */
+  heistCount: number;
+  /**
+   * IDs of players who have successfully heisted at least once.
+   * Used for post-session stats.
+   */
+  successfulHeisters: string[];
+}
+
+/** Vault value that must be reached before heist becomes available */
+export const VAULT_THRESHOLD = 5000;
+
+/** Fraction of scored points that flow into the shared Vault */
+export const VAULT_SPLIT = 0.70;
+
+/** Role-specific Vault protection: Archivist shields this fraction */
+export const ARCHIVIST_VAULT_SHIELD = 0.20;
+
+/** Role-specific Vault boost: Conductor increases contribution rate by this */
+export const CONDUCTOR_VAULT_BOOST = 0.10;
+
+════════════════════════════════════════════════
+SECTION 8 — HEIST ROLE MODIFICATIONS
+════════════════════════════════════════════════
+
+ADD AFTER CONDUCTOR_VAULT_BOOST:
+
+/**
+ * Heist-mode role behaviors.
+ * These EXTEND (not replace) the base RallyRole behaviors.
+ * In HEIST modes, each role gains an additional Heist-specific ability.
+ */
+export interface HeistRoleModifier {
+  role: RallyRole;
+  /** Description of the base Rally ability (unchanged) */
+  baseAbility: string;
+  /** Description of the Heist-mode addition */
+  heistAbility: string;
+  /** Numeric effect applied in Heist calculations */
+  heistEffect: {
+    type: 'VAULT_SHIELD' | 'VAULT_BOOST' | 'POOL_RECOVERY' | 'MULTIPLIER_PASS';
+    value: number;
+  };
+}
+
+export const HEIST_ROLE_MODIFIERS: Record<RallyRole, HeistRoleModifier> = {
+  ARCHIVIST: {
+    role: 'ARCHIVIST',
+    baseAbility: 'Recover 15% of Farkle Pool per chain.',
+    heistAbility: 'Protects 20% of Vault value against any single heist.',
+    heistEffect: { type: 'VAULT_SHIELD', value: ARCHIVIST_VAULT_SHIELD },
+  },
+  CONDUCTOR: {
+    role: 'CONDUCTOR',
+    baseAbility: 'Pass grants incoming player +1 multiplier step.',
+    heistAbility: 'Vault contributions increased by 10% while Conductor is active player.',
+    heistEffect: { type: 'VAULT_BOOST', value: CONDUCTOR_VAULT_BOOST },
+  },
+  RAINMAKER: {
+    role: 'RAINMAKER',
+    baseAbility: 'Choose Rainbow Bomb target color.',
+    heistAbility: 'Vault heist window extended by +2 seconds when Rainmaker initiates.',
+    heistEffect: { type: 'MULTIPLIER_PASS', value: 2000 },
+  },
+  HEADHUNTER: {
+    role: 'HEADHUNTER',
+    baseAbility: 'Stone Blockers destroyed in 1 hit.',
+    heistAbility: 'Successfully blocking a heist recovers 15% of vault into personal score.',
+    heistEffect: { type: 'POOL_RECOVERY', value: 0.15 },
+  },
+} as const;
+
+════════════════════════════════════════════════
+SECTION 9 — EXTEND LOBBYSTATE FOR HEIST
+════════════════════════════════════════════════
+
+ADD AFTER HEIST_ROLE_MODIFIERS:
+
+/**
+ * Heist-mode specific lobby settings.
+ * Extends the base HostLobbySettings.
+ */
+export interface HeistLobbySettings {
+  /** Vault split percentage shown to players before game starts */
+  displayedVaultSplit: number;
+  /**
+   * Minimum vault value required before heist is available.
+   * Defaults to VAULT_THRESHOLD.
+   */
+  vaultThreshold: number;
+  /** Whether Heist Casino mode with real PDX stakes is enabled */
+  isCasino: boolean;
+}
+
+════════════════════════════════════════════════
+OUTPUT INSTRUCTIONS
+════════════════════════════════════════════════
+
+Output each section above as a patch block with:
+  ADD AFTER [export name]:
+  [code]
+
+Do NOT output the full types.ts file — additions only.
+Do NOT modify GameMode to remove existing 6 values — only extend.
+Do NOT modify Cell, GridPos, DieFace, or any engine geometry types.
+TypeScript strict mode. JSDoc on every export.
+No implicit or explicit any.
+
+Write FILE COMPLETE then this Integration Note:
+
+INTEGRATION NOTE:
+- New GameMode values: 'HEIST_FREE' | 'HEIST_CASINO' (total: 8)
+- New CellState value: 'WILD' (total: 6 states)
+- Energy constants: [list all exported const names]
+- Pool types: DiePoolEntry, WildPoolEntry, SixPoolSnapshot
+- Heist types: HeistState, HeistWindow, HeistLobbySettings
+- Next prompt: A2 — gridUtils.ts SixPoolManager patch
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

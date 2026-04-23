@@ -1,0 +1,172 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT A4 — monteCarlo.ts + rtpConfig.ts: 6-Pool RTP Patch
+Block A: Foundation | Prompt 4 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript engine on a monorepo casino puzzle game.
+Complete files, zero truncation. Strict mode. No any. JSDoc every export.
+These are PATCHES — output full updated files.
+
+USER MESSAGE:
+
+Patch two files: packages/engine/src/monteCarlo.ts and
+packages/engine/src/rtpConfig.ts to incorporate the 6-pool
+architecture, Wild Blocker events, rock blockers, and energy
+system into RTP simulation.
+
+MONOREPO CONTEXT:
+- packages/engine/src/monteCarlo.ts — simulation engine
+- packages/engine/src/rtpConfig.ts  — config constants
+- Imports from: @farkle/shared/types, @farkle/engine/gridUtils (SixPoolManager),
+  @farkle/engine/farkleScorer (scoreFarkle, wildScatterScore)
+- The simulation must run 4,000 sessions
+- Output RTP within ±2% of pre-patch baseline
+
+════════════════════════════════════════════════
+FILE 1 — rtpConfig.ts PATCH
+════════════════════════════════════════════════
+
+ADD the following fields to RTPConfig interface:
+  /** Rate of Wild Blocker spawns from live wild pool (0.0–1.0) */
+  wildSpawnRate: number;
+  /** Fraction of die pool slots that are rock blockers */
+  rockBlockerRate: number;
+  /** Fraction of wild pool that is empty (plain die, no overlay) */
+  emptyWildRate: number;
+
+UPDATE RTP_CONFIGS entries to include new fields with defaults:
+  wildSpawnRate: 0.10   (10% — matches liveWild pool composition)
+  rockBlockerRate: 0.12 (12% — matches MEDIUM density)
+  emptyWildRate: 0.60   (60% — matches pool weight spec)
+
+ADD new config constants:
+  /** Expected fraction of sessions where Wild Scatter triggers at least once */
+  export const EXPECTED_WILD_SCATTER_RATE = 0.15;
+
+  /** Points added to normalizer baseline per expected scatter event */
+  export const WILD_SCATTER_BONUS_BASELINE = 350;
+
+════════════════════════════════════════════════
+FILE 2 — monteCarlo.ts PATCH
+════════════════════════════════════════════════
+
+UPDATE SimulationSession to model 6-pool behavior:
+
+interface SimulatedSession {
+  chains: SimulatedChain[];
+  totalScore: number;
+  roundCount: number;
+  farkleCount: number;
+  wildScatterCount: number;       // NEW: how many scatter events occurred
+  wildScatterBonusTotal: number;  // NEW: total bonus points from scatter
+  energyHistory: number[];        // NEW: energy value sampled each chain
+  frenzyChainsRatio: number;      // NEW: fraction of chains made in Frenzy
+}
+
+UPDATE simulateSession() to:
+
+1. POOL SIMULATION:
+   Use SixPoolManager with a deterministic seededRng (LCG — not CSPRNG,
+   simulation speed is priority) to draw pool entries per chain.
+   Rock blockers drawn as 0 reduce effective board size.
+   Effective board playable cells = gridSize² - rockCount.
+
+2. WILD BLOCKER TRACKING:
+   Per cascade refill: probabilistically spawn Wild state tiles
+   at rate = rtpConfig.wildSpawnRate.
+   Track running wildCount (wilds currently on board).
+   When wildCount >= WILD_BLOCKER_FRENZY_COUNT:
+     Trigger simulated scatter event:
+       Randomly select 1–3 face values (matching wild faces)
+       destroyedFaces = simulate N tiles of those faces being destroyed
+       bonus = wildScatterScore(destroyedFaces)
+       Add bonus to totalScore
+       wildScatterCount++
+       wildScatterBonusTotal += bonus
+       Reset wildCount to 0
+
+3. ENERGY SIMULATION (simplified):
+   Track simulated energy using the exact formulas from EnergyState spec:
+     PRIME: +5/sec passive, -10 per short chain, +10 per 6-chain
+     FRENZY: -5/sec drain, +10 per chain
+   Use average 2-second "chain time" assumption for tick simulation.
+   Record energyHistory at each chain step.
+   frenzyChainsRatio = chains made while energy > 150 / total chains.
+
+4. ROUND END SIMULATION:
+   Round ends when:
+     - Farkle occurs (score = 0)
+     - Chain length < 6 (simulated as probabilistic: 70% of chains < 6)
+     - Energy hits 0 (from simulation above)
+   Auto-bank on round end — banked score accumulates across rounds.
+   Simulate 3–8 rounds per session (randomize from seededRng).
+
+5. NORMALIZER UPDATE:
+   After 4,000 sessions:
+     baselineAvg = average totalScore across sessions
+     Add WILD_SCATTER_BONUS_BASELINE × EXPECTED_WILD_SCATTER_RATE
+     normalizer = adjustedAvg / targetRTP
+
+ADD new export:
+
+/**
+ * Runs the full 4,000-session Monte Carlo simulation with 6-pool
+ * and energy system modeling. Returns RTP calibration data.
+ */
+export interface SimulationReport {
+  sessionCount: number;
+  averageScore: number;
+  averageRounds: number;
+  farkleRate: number;
+  wildScatterRate: number;
+  averageWildScatterBonus: number;
+  averageFrenzyChainsRatio: number;
+  normalizer: number;
+  projectedRTP: number;
+  poolConfig: {
+    liveDieSize: number;
+    liveWildSize: number;
+    rockBlockerRate: number;
+    wildSpawnRate: number;
+  };
+}
+
+export async function runSimulation(
+  config: RTPConfig,
+  sessionCount = 4000
+): Promise<SimulationReport>
+
+════════════════════════════════════════════════
+CRITICAL RULES
+════════════════════════════════════════════════
+
+- monteCarlo uses seededRng() LCG for speed (not CSPRNG)
+- SixPoolManager accepts a seededRng-compatible interface
+- Do NOT use Math.random() anywhere
+- Simulation must complete in < 5 seconds for 4,000 sessions
+- wildScatterScore() must be imported from farkleScorer
+- Output within ±2% of pre-patch RTP baseline (82–102% range intact)
+- Do NOT break existing runMonteCarlo() function signature if present —
+  rename or alias if needed for backward compatibility
+
+Output both files complete, in sequence.
+Write FILE 1 COMPLETE, then FILE 2 COMPLETE, then Integration Note.
+
+INTEGRATION NOTE must include:
+- New RTPConfig fields and their defaults
+- SimulationReport shape
+- Energy simulation assumptions (chain time, round count distribution)
+- Confirmed: RTP range still 82–102% after patch
+- Next prompt: B1 — useEnergy.ts (new hook)
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

@@ -1,0 +1,155 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D7 — HeistGameScreen.tsx (NEW) + App.tsx (Final)
+Block D: Screens + Auth | Prompt 18 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete files, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+
+USER MESSAGE:
+Generate HeistGameScreen.tsx and the final App.tsx routing all 8 modes.
+
+─────────────────────────────────────────────
+FILE 1 — apps/client/src/components/HeistGameScreen.tsx (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- For GameMode 'HEIST_FREE' and 'HEIST_CASINO'
+- Uses all same hooks as GameScreen.tsx
+- Adds Vault + Heist UI on top of standard game layout
+- Multiplayer only (min 2 players) — Solo Heist not available
+
+LAYOUT (same screen-fit contract as GameScreen, 100dvh):
+
+┌─────────────────────────────────────────────────┐
+│  TOP BAR (44px): Mode | Round | Phase | ⚙       │
+├─────────────────────────────────────────────────┤
+│  VAULT BAR (56px): VaultDisplay compact view    │
+│  [💰 VAULT: 8,450] [Progress bar] [HEIST! btn] │
+├─────────────────────────────────────────────────┤
+│  ENERGY BAR (48px): EnergyMeter full width      │
+├─────────────────────────────────────────────────┤
+│  INFO STRIP (36px): Multiplier | Ladder | Combo │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│         G R I D  (flex-1)                       │
+│     (FrenzyOverlay, EnergyMinimap top-right)    │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│  HEIST PANEL (80px): HeistPanel component       │
+└─────────────────────────────────────────────────┘
+
+VAULT BAR (new zone, not in regular GameScreen):
+  Compact VaultDisplay:
+    Vault value (amber-400 font-black text-xl)
+    Thin progress bar to VAULT_THRESHOLD
+    "⚡ HEIST AVAILABLE" badge (rose-500, pulsing) when threshold met
+    Personal score next to vault: "You: {personalScore}"
+
+HEIST WINDOW OVERLAY:
+  When heistState.activeHeist !== null:
+    Full-board overlay: rose-950/60 tint
+    Center panel:
+      "{initiatorName} IS HEISTING!" in rose-400 font-black text-2xl
+      5-second SVG ring countdown
+      Large [🛡 BLOCK] button for non-initiators (rose-700 bg)
+      "Blocking: {blockerNames}" list updates in real-time
+    If countdownMs <= 0 AND no blockers: vault stolen, show "HEIST SUCCESS!"
+    If blockers >= 1: "HEIST BLOCKED!" overlay (blue flash)
+
+PLAYER CARDS ROW (below energy bar in multiplayer):
+  EnergyMinimap fixed top-right of grid container
+  Shows all players' energy, role badges, heist contribution %
+
+HEIST SUCCESS ANIMATION:
+  Vault number spins to 0 with Motion counter animation
+  Winner's name flashes in gold
+  "💰 {amount} HEISTED" floats up from vault bar
+  Board shake: x: [-16, 16, -12, 8, -4, 0] over 600ms
+
+ROLES IN HEIST:
+  Archivist badge: "🛡 {Math.round(vault * 0.2)} protected"
+  Conductor badge: "⚡ +10% vault boost"
+  These shown on player's row in EnergyMinimap
+
+─────────────────────────────────────────────
+FILE 2 — apps/client/src/App.tsx (FINAL REPLACEMENT)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Routes all 8 game modes + auth + lobby
+- Imports all screen components
+- Manages top-level auth state via useUserProfile
+
+SCREEN STATES:
+  type AppScreen =
+    | 'AUTH'         // Login/Register (shown if no profile)
+    | 'LOBBY'        // Mode selection + settings
+    | 'HOST_LOBBY'   // Waiting room (multiplayer)
+    | 'GAME'         // Solo modes
+    | 'VS'           // Versus modes
+    | 'RALLY'        // Rally modes
+    | 'HEIST';       // Heist modes
+
+ROUTING LOGIC:
+  1. On mount: check useUserProfile().activeProfile
+     If null → screen = 'AUTH'
+     If present → screen = 'LOBBY'
+
+  2. handleStart(settings: LobbySettings):
+     const mode = settings.mode;
+     if playerCount === 1 → 'GAME'
+     else if mode.startsWith('HEIST') → 'HOST_LOBBY' (then 'HEIST')
+     else if mode.startsWith('VS') → 'HOST_LOBBY' (then 'VS')
+     else if mode.startsWith('RALLY') → 'HOST_LOBBY' (then 'RALLY')
+
+  3. HOST_LOBBY → when launched: advance to game screen
+
+  4. All game screens: onReturnToLobby → 'LOBBY'
+
+PLAYER NAME INPUT:
+  For multiplayer: if no profile → prompt name input screen
+  If profile exists: use profile.username automatically
+
+AUTH FLOW:
+  AUTH screen → onAuthSuccess → 'LOBBY'
+  AUTH screen → onSkip (guest) → 'LOBBY' with guest profile
+
+COMPONENT IMPORTS:
+  AuthScreen, Lobby, HostLobbyPanel, GameScreen,
+  VSGameScreen (stub if not built yet), RallyGameScreen (stub),
+  HeistGameScreen
+
+STUB SCREENS:
+  VSGameScreen: if not yet built, render placeholder:
+    <div>VS mode — coming in multiplayer build</div>
+  RallyGameScreen: same placeholder
+
+LOBBY INTEGRATION:
+  Lobby.tsx receives: onStart, profile, wallet
+  Mode cards now include HEIST: emoji 🗡️, "Heist (Syndicate)",
+  "Betray your team", "2–4 Players"
+
+WALLET PROVIDER:
+  useWallet() called at App level, passed down to Lobby and GameScreen
+
+Write FILE 1 COMPLETE, then FILE 2 COMPLETE, then Integration Note.
+
+INTEGRATION NOTE must include:
+- All 8 GameMode values and their routing destinations
+- Heist vault animation confirmed
+- Auth flow: profile check on mount
+- Stub screens for VS/Rally (completed in Update 08)
+- Next prompt: E1 — Server gameRoom.ts final revision
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

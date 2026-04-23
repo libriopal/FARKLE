@@ -1,0 +1,294 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT E1 — Server: gameRoom.ts Final Revision
+Block E: Server | Prompt 19 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript/Node.js engineer. Complete file, no truncation.
+Strict mode, no any. JSDoc every export.
+Express v5 syntax (async error handling differs from v4).
+sql.js ONLY for SQLite — NOT better-sqlite3.
+Do NOT use Math.random() for game events.
+
+USER MESSAGE:
+Generate the final apps/server/src/gameRoom.ts incorporating
+all systems: energy tracking, 6-pool, Wild Scatter, Frenzy
+conflict resolution, Heist vault, and E2E chat relay.
+
+This file REPLACES the Update 07 gameRoom.ts stub.
+
+MONOREPO CONTEXT:
+- Imports from @farkle/engine:
+    SixPoolManager, scanForWilds, applyWildScatter, getWildCells
+    scoreFarkle, wildScatterScore, resolveWilds
+- Imports from @farkle/shared/types: all relevant types
+- ws package for WebSocket types
+- uuid for IDs
+
+════════════════════════════════════════════════
+SECTION 1 — SERVER-SIDE PLAYER STATE
+════════════════════════════════════════════════
+
+interface ServerPlayer {
+  id: string;
+  name: string;
+  color: UsernameColor;
+  artSnippet: string;
+  role?: RallyRole;
+  isHost: boolean;
+  isConnected: boolean;
+  ws: WebSocket | null;
+  clientSeed: string;
+  banked: number;
+  energy: number;            // Server-authoritative energy value
+  isAnchor: boolean;         // Whether this player triggered Frenzy
+  lastChainTimestamp: number; // For 100ms input lock (anti-macro)
+  personalScore: number;     // Heist mode: personal portion
+  vaultContribution: number; // Heist mode: how much contributed to vault
+}
+
+════════════════════════════════════════════════
+SECTION 2 — ROOM STATE
+════════════════════════════════════════════════
+
+interface RoomState {
+  id: string;
+  sessionId: string;
+  settings: LobbySettings;
+  players: Map<string, ServerPlayer>;
+  grid: Cell[][];
+  pool: SixPoolManager;
+  phase: GamePhase;
+  roundPhase: RoundPhase;
+  roundNumber: number;
+  activePlayerId: string | null;  // null during FRENZY (simultaneous)
+  turnTimer: NodeJS.Timeout | null;
+  banked: number;
+  unbanked: number;
+  multiplierStep: number;
+  consecutiveChains: number;
+  farklePool: number;
+  wildCount: number;
+  globalEnergyMode: GlobalEnergyMode;
+  frenzyAnchorId: string | null;
+  heistState: HeistState | null;
+  milestonesHit: Set<number>;
+  serverSeed: string;
+  serverSeedHash: string;
+  combinedSeed: string | null;
+  energyTickInterval: NodeJS.Timeout | null;
+}
+
+════════════════════════════════════════════════
+SECTION 3 — ENERGY TICK LOOP (server-side)
+════════════════════════════════════════════════
+
+Start energy tick interval (1000ms) on room creation:
+
+  energyTick():
+    For each connected player:
+      if globalEnergyMode === 'PRIME':
+        player.energy = Math.min(MAX_ENERGY, player.energy + PRIME_PASSIVE_GAIN)
+      if globalEnergyMode === 'FRENZY':
+        drain = player.energy < CATCHUP_THRESHOLD ? FRENZY_LOW_DRAIN : FRENZY_DRAIN
+        player.energy = Math.max(0, player.energy - drain)
+        if player.energy === 0:
+          handlePlayerEnergyZero(player.id)
+
+    updateGlobalMode():
+      anyAbove = players.some(p => p.energy > FRENZY_THRESHOLD)
+      allBelow = players.every(p => p.energy <= FRENZY_THRESHOLD)
+      if anyAbove && globalEnergyMode !== 'FRENZY':
+        globalEnergyMode = 'FRENZY'
+        frenzyAnchorId = highest energy player id
+        broadcast FRENZY_TRIGGERED { anchorId }
+      if allBelow && globalEnergyMode !== 'PRIME':
+        globalEnergyMode = 'PRIME'
+        frenzyAnchorId = null
+        broadcast PRIME_RETURNED {}
+
+    Broadcast ENERGY_UPDATE to all players:
+      { players: [{ id, energy, isAnchor, catchupActive }], globalMode }
+
+════════════════════════════════════════════════
+SECTION 4 — submitChain() (major update)
+════════════════════════════════════════════════
+
+submitChain(playerId: string, chain: GridPos[]):
+  1. INPUT LOCK CHECK:
+     if Date.now() - player.lastChainTimestamp < 100:
+       return (anti-macro protection)
+     player.lastChainTimestamp = Date.now()
+
+  2. FRENZY CONFLICT RESOLUTION (server first-write-wins):
+     During FRENZY: no activePlayerId check
+     During PRIME: check playerId === activePlayerId
+
+  3. CHAIN VALIDATION:
+     Validate all positions are valid, non-empty cells
+     Validate chain.length >= 2
+     Extract faces (with 'WILD' for Wild Blocker cells)
+
+  4. SCORING:
+     result = scoreFarkle(faces, settings.threeOnesScore, settings.singleOneScore)
+     resolvedFaces = result.resolvedFaces ?? faces
+
+  5. ENERGY APPLICATION:
+     const usedWild = faces.some(f => f === 'WILD')
+     applyChainEnergy(player, chain.length, usedWild)
+     updateGlobalMode()
+
+  6. GRID UPDATE + CASCADE:
+     Remove chained cells, damage adjacent blockers
+     Run cascade: stepGravity → spawnTiles (SixPoolManager) → normalizeTiles
+     After cascade: wildCount = scanForWilds(grid)
+
+  7. WILD SCATTER CHECK:
+     if wildCount >= WILD_BLOCKER_FRENZY_COUNT:
+       { newGrid, destroyedFaces } = applyWildScatter(grid)
+       scatterBonus = wildScatterScore(destroyedFaces)
+       grid = newGrid
+       Force all players' energy to FRENZY_THRESHOLD + 1
+       broadcast WILD_SCATTER { destroyedFaces, scatterBonus }
+       unbanked += scatterBonus
+       wildCount = 0
+
+  8. ROUND END CHECK (PRIME mode only):
+     if result.isFarkle: handleRoundEnd(playerId, 'FARKLE')
+     else if chain.length < 6 && globalEnergyMode === 'PRIME':
+       handleRoundEnd(playerId, 'SHORT_CHAIN')
+     else:
+       // Continue round — 6-chain or FRENZY keeps going
+
+  9. HEIST VAULT SPLIT (if HEIST mode):
+     vaultContrib = Math.round(result.scaledScore * VAULT_SPLIT)
+     personal = result.scaledScore - vaultContrib
+     unbanked += personal
+     heistState.vault += vaultContrib
+     player.personalScore += personal
+     player.vaultContribution += vaultContrib
+     checkBetrayalThreshold(player)
+
+  10. BROADCAST:
+      CHAIN_RESULT { playerId, result, resolvedFaces }
+      BOARD_UPDATE { grid }
+      ENERGY_UPDATE { players energies, globalMode }
+      if HEIST: VAULT_UPDATE { vault, personalScores, betrayalUnlocked }
+
+════════════════════════════════════════════════
+SECTION 5 — HEIST ACTIONS
+════════════════════════════════════════════════
+
+initiateHeist(playerId):
+  Validate: heistState.betrayalUnlocked[playerId] === true
+  Validate: player.energy >= HEIST_ENERGY_COST
+  player.energy -= HEIST_ENERGY_COST
+  heistState.activeHeist = { initiatorId: playerId,
+    countdownMs: HEIST_WINDOW_MS, blockerIds: [], startedAt: Date.now() }
+  roundPhase = 'HEIST_WINDOW'
+  broadcast HEIST_INITIATED { playerId, countdownMs: HEIST_WINDOW_MS }
+  
+  setTimeout(() => resolveHeist(), HEIST_WINDOW_MS)
+
+blockHeist(playerId):
+  if !heistState.activeHeist: return
+  heistState.activeHeist.blockerIds.push(playerId)
+  broadcast HEIST_BLOCKED { blockerId: playerId }
+
+resolveHeist():
+  const heist = heistState.activeHeist
+  if !heist: return
+  
+  const archivist = getPlayerByRole('ARCHIVIST')
+  const shieldedAmount = archivist
+    ? Math.round(heistState.vault * ARCHIVIST_VAULT_SHIELD)
+    : 0
+  const stolenAmount = heistState.vault - shieldedAmount
+  
+  const initiator = players.get(heist.initiatorId)
+  if initiator: initiator.banked += stolenAmount
+  
+  heistState.vault = shieldedAmount
+  heistState.heistCount++
+  heistState.successfulHeisters.push(heist.initiatorId)
+  heistState.activeHeist = null
+  roundPhase = 'ROLLING'
+  
+  broadcast HEIST_RESOLVED {
+    winnerId: heist.initiatorId,
+    stolenAmount,
+    shieldedAmount,
+    vaultReset: heistState.vault
+  }
+
+checkBetrayalThreshold(player):
+  const unlocked = heistState.vault >= VAULT_THRESHOLD
+                   && player.energy >= HEIST_ENERGY_COST
+  heistState.betrayalUnlocked[player.id] = unlocked
+  if unlocked: broadcast HEIST_AVAILABLE { playerId: player.id }
+
+════════════════════════════════════════════════
+SECTION 6 — CHAT RELAY
+════════════════════════════════════════════════
+
+handleChatMessage(senderId: string, msg: ChatMessage):
+  Validate: msg.roomId === this.state.id
+  Validate: msg.encryptedContent length > 0
+  Validate: msg.senderName === player.name (no spoofing)
+  Relay to all OTHER connected players:
+    broadcast CHAT_MESSAGE { message: msg } (exclude sender)
+  Note: server never decrypts — E2E maintained
+
+════════════════════════════════════════════════
+SECTION 7 — NEW SERVER MESSAGES (broadcast types)
+════════════════════════════════════════════════
+
+Add to existing server message protocol:
+  ENERGY_UPDATE      { players: [{id, energy, isAnchor, catchupActive}], globalMode }
+  FRENZY_TRIGGERED   { anchorId: string }
+  PRIME_RETURNED     {}
+  FRENZY_INSTABILITY { anchorId: string }  // sent when anchor drops near threshold
+  WILD_SCATTER       { destroyedFaces: DieFace[], scatterBonus: number }
+  VAULT_UPDATE       { vault, personalScores, betrayalUnlocked }
+  HEIST_AVAILABLE    { playerId: string }
+  HEIST_INITIATED    { playerId: string, countdownMs: number }
+  HEIST_BLOCKED      { blockerId: string }
+  HEIST_RESOLVED     { winnerId, stolenAmount, shieldedAmount, vaultReset }
+  ROUND_END          { reason: RoundEndReason, roundNumber: number }
+  CHAT_MESSAGE       { message: ChatMessage }
+
+════════════════════════════════════════════════
+RULES
+════════════════════════════════════════════════
+
+- sql.js for SQLite (NOT better-sqlite3)
+- setInterval for energy tick (1000ms) — NOT for cascade
+- Cascade still uses setTimeout recursion
+- Express v5 — no next() required for async route errors
+- SixPoolManager initialized in RoomState.pool
+- resolveWilds called inside scoreFarkle (transparent to server)
+- No Math.random() — all randomness via CSPRNG or seededRng
+- JSDoc on every method
+- TypeScript strict, no any
+
+Write FILE COMPLETE then final Integration Note for the entire patch.
+
+FINAL INTEGRATION NOTE must include:
+- Complete list of all 19 prompts and what they build
+- New server messages added vs Update 07 baseline
+- Energy tick: server-authoritative at 1000ms
+- Frenzy first-write-wins confirmed
+- Heist vault math: 70/30 split, ARCHIVIST_VAULT_SHIELD
+- Build order reminder: A→B→C→D→E
+- Gate conditions for each block
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

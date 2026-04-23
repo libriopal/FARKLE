@@ -1,0 +1,151 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D1 — Types Patch 2 + useUserProfile.ts (Auth Foundation)
+Block D: Screens + Auth | Prompt 12 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript/React engineer. Complete files, no truncation.
+Strict mode, no any. JSDoc every export. Web Crypto API for hashing.
+Two files in this prompt — output both in full.
+
+USER MESSAGE:
+Generate two files for the local user authentication system.
+
+─────────────────────────────────────────────
+FILE 1 — packages/shared/src/types.ts (PATCH — Auth additions only)
+─────────────────────────────────────────────
+
+ADD AFTER existing sweepstakes types:
+
+export type UsernameColor =
+  | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple';
+
+export const USERNAME_COLOR_CLASSES: Record<UsernameColor, string> = {
+  red:    'text-rose-500',
+  orange: 'text-orange-500',
+  yellow: 'text-amber-400',
+  green:  'text-emerald-500',
+  blue:   'text-sky-500',
+  purple: 'text-violet-500',
+} as const;
+
+export const USERNAME_COLOR_HEX: Record<UsernameColor, string> = {
+  red: '#f43f5e', orange: '#f97316', yellow: '#fbbf24',
+  green: '#10b981', blue: '#0ea5e9', purple: '#8b5cf6',
+} as const;
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  color: UsernameColor;
+  /** Free-form multi-line ASCII art. Max 8 lines × 12 chars. */
+  asciiArt: string;
+  createdAt: string;
+  passwordHash: string; // SHA-256 hex
+}
+
+export const DEFAULT_ASCII_THUMBNAILS: Record<string, string> = {
+  dice: ' ┌─────┐\n │ ● ● │\n │  ●  │\n └─────┘',
+  star: '  ★ ★ ★\n ★  ✦  ★\n  ★ ★ ★',
+  farkle: ' ╔═══╗\n ║F!F║\n ╚═══╝',
+  gem: '   ◆\n  ◆◆◆\n ◆◆◆◆◆\n  ◆◆◆',
+} as const;
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderColor: UsernameColor;
+  senderArtSnippet: string; // First 3 lines of asciiArt
+  encryptedContent: string; // AES-GCM ciphertext, base64
+  iv: string;               // AES-GCM IV, base64
+  timestamp: string;
+  roomId: string;
+}
+
+export const CHAT_MAX_MESSAGES = 100;
+export const CHAT_MAX_LENGTH = 280;
+
+export interface HostLobbySettings {
+  targetPlayerCount: 1 | 2 | 3 | 4;
+  usernameWhitelist: string[];
+  gameMode: GameMode;
+}
+
+export interface HostLobbyPlayer {
+  id: string;
+  username: string;
+  color: UsernameColor;
+  artSnippet: string;
+  isHost: boolean;
+  joinedAt: string;
+}
+
+export interface HostLobbyState {
+  roomId: string;
+  settings: HostLobbySettings;
+  players: HostLobbyPlayer[];
+  countdown: { active: boolean; remainingMs: number } | null;
+  launched: boolean;
+}
+
+export const HOST_COUNTDOWN_MS = 30_000;
+
+─────────────────────────────────────────────
+FILE 2 — apps/client/src/hooks/useUserProfile.ts (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- localStorage keys: 'farkle_profiles' (UserProfile[]), 'farkle_active_profile' (id string)
+- Named useUserProfile — distinct from future useAuth.ts (Supabase, Update 09)
+- All crypto via window.crypto.subtle — no external libraries
+
+REQUIRED BEHAVIOR:
+
+hashPassword(raw: string): Promise<string>
+  → crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
+  → return lowercase hex
+
+register(username, password, color, asciiArt):
+  Promise<{ success: boolean; error?: string }>
+  → Validate: username 3–20 chars, /^[a-zA-Z0-9_]+$/
+  → Validate: password >= 6 chars
+  → Check username uniqueness (case-insensitive)
+  → Hash password → create UserProfile with crypto.randomUUID()
+  → Save to profiles array, set as active
+
+login(username, password):
+  Promise<{ success: boolean; error?: string }>
+  → Find by username (case-insensitive)
+  → Hash submitted password, compare to stored hash
+  → If match: set active profile
+
+logout(): void → remove active profile from localStorage
+
+updateProfile(fields: Partial<Pick<UserProfile, 'username'|'color'|'asciiArt'>>):
+  Promise<{ success: boolean; error?: string }>
+  → Re-check username uniqueness if changing username
+
+RETURN:
+  { activeProfile, isLoggedIn, register, login, logout, updateProfile, hashPassword }
+
+RULES:
+  - useState + useEffect for localStorage sync
+  - nanoid() for profile IDs
+  - TypeScript strict, no any
+  - Never store or log raw passwords
+
+Write FILE 1 (patch markers), then FILE 2 (complete), then Integration Note.
+Integration Note: confirm naming separation from Update 09 useAuth.ts
+Next prompt: D2 — AuthScreen.tsx
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

@@ -1,0 +1,272 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT A2 — gridUtils.ts: SixPoolManager + Board Generation
+Block A: Foundation | Prompt 2 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript engineer on a monorepo casino puzzle game.
+Complete files, zero truncation. Strict mode. No any. JSDoc every export.
+This is a PATCH — output changes and additions with clear section markers.
+
+USER MESSAGE:
+
+Patch packages/engine/src/gridUtils.ts — replace SpawnPool with
+SixPoolManager and update board generation order. This is a major
+structural patch but must not break the existing cascade, gravity,
+or blocker damage logic.
+
+MONOREPO CONTEXT:
+- File: packages/engine/src/gridUtils.ts
+- Imports from: @farkle/shared/types
+- New imports needed:
+    DiePoolEntry, WildPoolEntry, SixPoolSnapshot, PoolWeightConfig,
+    EnergyState (for pool sizing), WILD_BLOCKER_FRENZY_COUNT
+- Exported SpawnPool class → REPLACE with SixPoolManager class
+- All other exports (stepGravity, hasEmptyBelow, normalizeTiles,
+  damageAdjacentBlockers, hasValidChain) → KEEP UNCHANGED
+- New export: scanForWilds(grid: Cell[][]): number
+
+════════════════════════════════════════════════
+SECTION 1 — REMOVE / REPLACE
+════════════════════════════════════════════════
+
+REMOVE: The existing SpawnPool class entirely.
+REPLACE WITH: SixPoolManager class (spec below).
+
+KEEP ALL: stepGravity, hasEmptyBelow, normalizeTiles,
+          damageAdjacentBlockers, hasValidChain, cloneGrid,
+          multiplayerGridSize, createGrid (signature unchanged,
+          internals updated to use SixPoolManager).
+
+════════════════════════════════════════════════
+SECTION 2 — SixPoolManager CLASS
+════════════════════════════════════════════════
+
+export class SixPoolManager {
+  // Six arrays — Live and Dead for each pool type
+  private liveDie: DiePoolEntry[];
+  private deadDie: DiePoolEntry[];
+  private liveBlocker: number[];   // Rock blocker counts (all 0s in sequence)
+  private deadBlocker: number[];
+  private liveWild: WildPoolEntry[];
+  private deadWild: WildPoolEntry[];
+
+  private csprng: { next: () => number }; // HMAC-SHA256 CSPRNG instance
+
+  constructor(playerCount: number, settings: LobbySettings, csprng: { next: () => number })
+
+  POOL SIZE FORMULAS (derive from grid — Q11 Answer B):
+    gridDim = playerCount === 1 ? 7 : playerCount === 2 ? 8 : playerCount === 3 ? 9 : 10
+    liveDieSize = Math.ceil((gridDim * gridDim) / 6) * 6
+      — Equal distribution: liveDieSize/6 of each face (1–6)
+      — Rock placeholders (0s): blockerDensityCount(settings) mixed in
+      — Total: liveDieSize entries
+
+    liveBlockerSize = blockerDensityCount(settings) * 2
+      — All entries are rock blocker tokens (numeric value: 0)
+
+    liveWildSize = Math.ceil((gridDim * gridDim) / 4)
+      — Weighted distribution:
+          empty (0):  60% of liveWildSize
+          ice (1):    15% of liveWildSize
+          lock (2):   15% of liveWildSize
+          wild (3):   10% of liveWildSize
+      — Round counts to nearest integer, ensure total === liveWildSize
+
+  SHUFFLE: Use Fisher-Yates with csprng.next() for all pools.
+
+  METHODS:
+
+  drawDie(): DiePoolEntry
+    — Draws from liveDie[0], shifts array
+    — If liveDie.length === 0: replenish('die') first
+    — Returns 0 (rock) or 1–6 (die face)
+
+  drawWild(): WildPoolEntry
+    — Draws from liveWild[0], shifts array
+    — If liveWild.length === 0: replenish('wild') first
+    — Returns 0 (empty), 1 (ice), 2 (lock), 3 (wild)
+
+  drawBlocker(): number
+    — Draws from liveBlocker[0], shifts array
+    — If liveBlocker.length === 0: replenish('blocker') first
+
+  replenish(pool: 'die' | 'wild' | 'blocker'): void
+    — Promotes dead pool to live pool
+    — Creates new dead pool of same size
+    — Shuffles new live pool with csprng
+    — If dead pool also empty: create fresh pool from scratch
+
+  remainingDie(): number  — returns liveDie.length
+  remainingWild(): number — returns liveWild.length
+  snapshot(): SixPoolSnapshot — returns copy of all 6 arrays for verification
+
+  PRIVATE:
+  private shuffle<T>(arr: T[]): T[]  — Fisher-Yates, uses csprng.next()
+  private buildDiePool(size: number, rockCount: number): DiePoolEntry[]
+  private buildWildPool(size: number): WildPoolEntry[]
+}
+
+════════════════════════════════════════════════
+SECTION 3 — blockerDensityCount HELPER
+════════════════════════════════════════════════
+
+KEEP existing blockerDensityCount if present, or ADD:
+
+function blockerDensityCount(settings: LobbySettings): number {
+  switch (settings.blockerDensity) {
+    case 'LOW':    return 3;
+    case 'HIGH':   return 10;
+    case 'MEDIUM':
+    default:       return 6;
+  }
+}
+
+════════════════════════════════════════════════
+SECTION 4 — UPDATED createGrid()
+════════════════════════════════════════════════
+
+Signature stays: createGrid(gridDim: number, settings: LobbySettings,
+                             pool: SixPoolManager): Cell[][]
+
+BOARD GENERATION ORDER (strict — must follow exactly):
+
+STEP 1 — PLACE ROCK BLOCKERS:
+  rockCount = blockerDensityCount(settings)
+  Pre-compute rockCount random positions using csprng
+  (positions must not overlap)
+  For each rock position: create Cell with:
+    type: 'STONE', state: 'NORMAL', health: 2, face: null
+  Mark these positions as occupied
+
+STEP 2 — FILL NON-BLOCKER CELLS FROM liveDie:
+  For each unoccupied cell (row by row, top to bottom):
+    entry = pool.drawDie()
+    if entry === 0:
+      // Rock blocker drawn from die pool — place additional rock
+      Create Stone cell at this position
+    else:
+      Create normal die cell: face = entry, type = DieColor[entry],
+      state: 'SPAWNING'
+    Store as pendingCell (wild overlay applied in Step 3)
+
+STEP 3 — OVERLAY WILD/ICE/LOCK FROM liveWild:
+  For each cell created in Step 2 that is a normal die (not a rock):
+    wildEntry = pool.drawWild()
+    switch wildEntry:
+      case 0: no change (plain die)
+      case 1: cell.state = 'FROZEN' (Ice Blocker)
+      case 2: cell.state = 'LOCKED' (Lock Blocker)
+      case 3: cell.state = 'WILD'   (Wild Blocker)
+
+STEP 4 — NORMALIZE:
+  All SPAWNING cells → NORMAL
+
+════════════════════════════════════════════════
+SECTION 5 — CASCADE REFILL (spawnTiles update)
+════════════════════════════════════════════════
+
+UPDATE spawnTiles(grid: Cell[][], pool: SixPoolManager): Cell[][]
+  For each EMPTY cell in row 0 (top row):
+    entry = pool.drawDie()
+    if entry === 0: create Stone cell (rocks can appear from cascade)
+    else:
+      Create die cell with state: 'SPAWNING', face: entry
+      wildEntry = pool.drawWild()
+      Apply wild overlay as in Step 3 above
+
+NOTE: Rock blockers from cascade ARE subject to gravity on the NEXT
+step (unlike initially-placed rocks which are immovable). Mark
+cascade-spawned rocks with a 'SPAWNING_ROCK' state that becomes
+'NORMAL' (immovable) after normalizeTiles().
+
+════════════════════════════════════════════════
+SECTION 6 — scanForWilds() NEW EXPORT
+════════════════════════════════════════════════
+
+/**
+ * Scans the grid and returns the count of cells with state 'WILD'.
+ * Called after every cascade completion.
+ * When result >= WILD_BLOCKER_FRENZY_COUNT, Wild Scatter triggers.
+ * @returns Number of Wild Blocker cells currently on the grid
+ */
+export function scanForWilds(grid: Cell[][]): number {
+  let count = 0;
+  for (let r = 0; r < grid.length; r++)
+    for (let c = 0; c < grid[0].length; c++)
+      if (grid[r][c].state === 'WILD') count++;
+  return count;
+}
+
+/**
+ * Returns the positions and face values of all Wild Blocker cells.
+ * Used by WILD_SCATTER action to determine which faces to destroy.
+ */
+export function getWildCells(grid: Cell[][]): Array<{ row: number; col: number; face: DieFace }> {
+  const wilds: Array<{ row: number; col: number; face: DieFace }> = [];
+  for (let r = 0; r < grid.length; r++)
+    for (let c = 0; c < grid[0].length; c++) {
+      const cell = grid[r][c];
+      if (cell.state === 'WILD' && cell.face !== null)
+        wilds.push({ row: r, col: c, face: cell.face });
+    }
+  return wilds;
+}
+
+/**
+ * Executes Wild Scatter detonation.
+ * Destroys all cells whose face matches any Wild Blocker face on the board.
+ * Also destroys the Wild Blocker cells themselves.
+ * Returns: { newGrid, destroyedFaces } for scoring.
+ */
+export function applyWildScatter(
+  grid: Cell[][]
+): { newGrid: Cell[][]; destroyedFaces: DieFace[] } {
+  const wilds = getWildCells(grid);
+  const scatterFaces = new Set(wilds.map(w => w.face));
+  const destroyedFaces: DieFace[] = [];
+  const newGrid = cloneGrid(grid);
+
+  for (let r = 0; r < newGrid.length; r++) {
+    for (let c = 0; c < newGrid[0].length; c++) {
+      const cell = newGrid[r][c];
+      if (
+        cell.face !== null &&
+        scatterFaces.has(cell.face) &&
+        cell.state !== 'FROZEN' // Ice immune to scatter
+      ) {
+        if (cell.face !== null) destroyedFaces.push(cell.face);
+        newGrid[r][c] = { ...cell, face: null, type: 'NONE', state: 'EMPTY' };
+      }
+    }
+  }
+  return { newGrid, destroyedFaces };
+}
+
+════════════════════════════════════════════════
+OUTPUT INSTRUCTIONS
+════════════════════════════════════════════════
+
+Output complete patched gridUtils.ts file.
+No truncation — output the entire file including all unchanged functions.
+All existing exports (stepGravity, hasValidChain, etc.) must be present.
+SixPoolManager must be the default pool class — SpawnPool must not exist.
+Write FILE COMPLETE then Integration Note.
+
+INTEGRATION NOTE must include:
+- SixPoolManager public API surface (all public methods)
+- scanForWilds, getWildCells, applyWildScatter export signatures
+- createGrid new signature (with SixPoolManager parameter)
+- spawnTiles new signature (with SixPoolManager parameter)
+- Next prompt: A3 — farkleScorer.ts Wild resolution patch
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

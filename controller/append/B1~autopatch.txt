@@ -1,0 +1,192 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT B1 — useEnergy.ts: Energy Tick Hook (NEW)
+Block B: Game State | Prompt 5 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript/React engineer on a monorepo casino puzzle game.
+Complete files, zero truncation. Strict mode. No any. JSDoc every export.
+This is a NEW file — generate it in full.
+
+USER MESSAGE:
+
+Generate apps/client/src/hooks/useEnergy.ts — isolated per-player
+energy tick loop for the Prime/Frenzy system.
+
+MONOREPO CONTEXT:
+- File: apps/client/src/hooks/useEnergy.ts
+- Imports from: @farkle/shared/types
+    (MAX_ENERGY, FRENZY_THRESHOLD, PRIME_PASSIVE_GAIN,
+     PRIME_CHAIN_SHORT, PRIME_CHAIN_SIX, WILD_CHAIN_SIX,
+     FRENZY_DRAIN, FRENZY_LOW_DRAIN, CATCHUP_THRESHOLD,
+     CATCHUP_BONUS, GlobalEnergyMode, EnergyState)
+- Imported by: useGame.ts, PlayerCard.tsx, EnergyMeter.tsx
+- React 19, hooks only, no class components
+
+════════════════════════════════════════════════
+DESIGN INTENT
+════════════════════════════════════════════════
+
+useEnergy is a SINGLE-PLAYER energy hook.
+It manages ONE player's local energy value.
+Global mode ('PRIME' | 'FRENZY') is passed IN as a prop — this hook
+does not own the global mode decision. The server (or useGame for
+singleplayer) determines the global mode. This hook reacts to it.
+
+This separation means:
+- Multiple players each have their own useEnergy instance
+- Global mode is determined externally (any player > 150 = FRENZY)
+- This hook handles local energy math only
+
+════════════════════════════════════════════════
+HOOK SIGNATURE
+════════════════════════════════════════════════
+
+export function useEnergy(options: {
+  /** Initial energy value. Default: 75 (start mid-Prime) */
+  initialEnergy?: number;
+  /** Current global game mode — passed from parent state */
+  globalMode: GlobalEnergyMode;
+  /** Called when this player's energy crosses FRENZY_THRESHOLD upward */
+  onFrenzyTrigger?: () => void;
+  /** Called when this player's energy drops to 0 */
+  onEnergyZero?: () => void;
+  /** Called whenever energy crosses threshold in either direction */
+  onThresholdCross?: (direction: 'up' | 'down', value: number) => void;
+  /** Whether energy ticking is paused (e.g. during cascade, round end) */
+  paused?: boolean;
+}): {
+  energy: number;
+  isAnchor: boolean;        // Set externally via setIsAnchor
+  catchupActive: boolean;   // Computed: energy < CATCHUP_THRESHOLD && globalMode === 'FRENZY'
+  applyChainEnergy: (chainLength: number, usedWild: boolean) => void;
+  setEnergy: (value: number) => void;     // For server sync in multiplayer
+  setIsAnchor: (val: boolean) => void;    // Set by parent when this player triggers Frenzy
+  forceToFrenzy: () => void;             // Forces energy to FRENZY_THRESHOLD + 1 (Wild Scatter)
+  reset: (initialValue?: number) => void; // Resets for new round
+}
+
+════════════════════════════════════════════════
+TICK LOOP IMPLEMENTATION
+════════════════════════════════════════════════
+
+Use requestAnimationFrame for the tick loop — NOT setInterval.
+(setInterval is rejected — stale closure risk.)
+
+TICK LOGIC (called every frame, delta-time normalized to seconds):
+
+if (paused) return;
+
+if (globalMode === 'PRIME') {
+  // Passive gain: +PRIME_PASSIVE_GAIN per second
+  energy += PRIME_PASSIVE_GAIN * deltaSeconds;
+  energy = Math.min(MAX_ENERGY, energy);
+}
+
+if (globalMode === 'FRENZY') {
+  // Drain rate depends on catch-up mechanic
+  const drainRate = energy < CATCHUP_THRESHOLD ? FRENZY_LOW_DRAIN : FRENZY_DRAIN;
+  energy -= drainRate * deltaSeconds;
+  energy = Math.max(0, energy);
+
+  if (energy <= 0) {
+    onEnergyZero?.();
+  }
+}
+
+// Threshold cross detection (both directions)
+const wasAbove = prevEnergy > FRENZY_THRESHOLD;
+const isAbove = energy > FRENZY_THRESHOLD;
+if (!wasAbove && isAbove) {
+  onThresholdCross?.('up', energy);
+  onFrenzyTrigger?.();
+}
+if (wasAbove && !isAbove) {
+  onThresholdCross?.('down', energy);
+}
+
+Store prevEnergy in ref to compare each frame.
+Use useRef for RAF handle — cleanup on unmount.
+Use useRef for lastTimestamp to compute deltaSeconds.
+
+════════════════════════════════════════════════
+applyChainEnergy() IMPLEMENTATION
+════════════════════════════════════════════════
+
+Apply energy delta based on chain result.
+Called by useGame after COMMIT_CHAIN resolves.
+
+function applyChainEnergy(chainLength: number, usedWild: boolean): void {
+  if (globalMode === 'PRIME') {
+    if (chainLength >= 6) {
+      const delta = usedWild ? WILD_CHAIN_SIX : PRIME_CHAIN_SIX;
+      setEnergy(prev => Math.min(MAX_ENERGY, prev + delta));
+    } else {
+      // Catch-up bonus applies in FRENZY only — not Prime
+      setEnergy(prev => Math.max(0, prev + PRIME_CHAIN_SHORT));
+    }
+  }
+
+  if (globalMode === 'FRENZY') {
+    const base = usedWild ? WILD_CHAIN_SIX : 10;
+    const catchupBonus = energy < CATCHUP_THRESHOLD ? CATCHUP_BONUS : 0;
+    setEnergy(prev => Math.min(MAX_ENERGY, prev + base + catchupBonus));
+  }
+}
+
+════════════════════════════════════════════════
+forceToFrenzy() IMPLEMENTATION
+════════════════════════════════════════════════
+
+Called when Wild Scatter triggers — pushes this player into Frenzy
+regardless of current energy value.
+
+function forceToFrenzy(): void {
+  setEnergy(FRENZY_THRESHOLD + 1);
+  // This will trigger onFrenzyTrigger on the next frame
+  // via the threshold cross detection in the RAF loop
+}
+
+════════════════════════════════════════════════
+COMPUTED VALUES
+════════════════════════════════════════════════
+
+catchupActive: boolean
+  = globalMode === 'FRENZY' && energy < CATCHUP_THRESHOLD
+
+isAboveFrenzy: boolean (internal, drives onFrenzyTrigger)
+  = energy > FRENZY_THRESHOLD
+
+════════════════════════════════════════════════
+RULES
+════════════════════════════════════════════════
+
+- Use requestAnimationFrame — NOT setInterval or setInterval
+- Clean up RAF on unmount (return () => cancelAnimationFrame(handle))
+- All energy values clamped: Math.min(MAX_ENERGY, Math.max(0, val))
+- TypeScript strict, no any
+- JSDoc on hook function and all returned methods
+- No DOM manipulation, no audio, no grid interaction
+- This hook is PURE energy math only
+- React StrictMode is DISABLED in this project (double-invoke safe)
+
+Write FILE COMPLETE then Integration Note.
+
+INTEGRATION NOTE must include:
+- Hook return API surface
+- RAF cleanup confirmed
+- globalMode passed as prop (not owned by hook)
+- applyChainEnergy delta table (all 4 cases)
+- forceToFrenzy behavior
+- Next prompt: B2 — useGame.ts major patch
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

@@ -1,0 +1,281 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT B2 — useGame.ts: Major Patch (Energy + Rounds + Heist)
+Block B: Game State | Prompt 6 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert TypeScript/React engineer on a monorepo casino puzzle game.
+Complete file, zero truncation. Strict mode. No any. JSDoc every export.
+This is a MAJOR PATCH to an existing file — preserve all existing
+action types and extend the reducer with new ones.
+
+USER MESSAGE:
+
+Patch apps/client/src/hooks/useGame.ts — add energy system,
+6-pool integration, Wild Scatter, round phase tracking, and
+Heist mode actions.
+
+MONOREPO CONTEXT:
+- File: apps/client/src/hooks/useGame.ts
+- New imports needed:
+    @farkle/engine/gridUtils: SixPoolManager, scanForWilds,
+                              applyWildScatter, getWildCells
+    @farkle/engine/farkleScorer: wildScatterScore
+    @farkle/shared/types: RoundPhase, RoundEndReason, HeistState,
+                          HeistWindow, VAULT_SPLIT, VAULT_THRESHOLD,
+                          HEIST_ENERGY_COST, WILD_BLOCKER_FRENZY_COUNT,
+                          HEIST_WINDOW_MS, GlobalEnergyMode,
+                          ARCHIVIST_VAULT_SHIELD, CONDUCTOR_VAULT_BOOST
+    ../hooks/useEnergy: useEnergy
+- React StrictMode is DISABLED — no double-invoke guards needed
+
+════════════════════════════════════════════════
+SECTION 1 — STATE SHAPE ADDITIONS
+════════════════════════════════════════════════
+
+ADD to GameState interface:
+
+  /** Current phase of the active round */
+  roundPhase: RoundPhase;
+
+  /** Why the last round ended */
+  lastRoundEndReason: RoundEndReason | null;
+
+  /** Round counter (starts at 1) */
+  roundNumber: number;
+
+  /**
+   * Count of Wild Blocker cells currently on the grid.
+   * Updated after every cascade completion via scanForWilds().
+   */
+  wildCount: number;
+
+  /**
+   * Global energy mode. Derived from any player's energy.
+   * In singleplayer: driven by the local player's energy.
+   * In multiplayer: driven by server ENERGY_UPDATE messages.
+   */
+  globalEnergyMode: GlobalEnergyMode;
+
+  /**
+   * Heist mode state. null when GameMode is not HEIST_*.
+   */
+  heistState: HeistState | null;
+
+CHANGE existing state:
+  - Replace SpawnPool ref with SixPoolManager ref
+  - Keep all existing fields: grid, banked, unbanked,
+    multiplierStep, consecutiveChains, popups, phase,
+    lastChainResult, farklePool, activeBombs
+
+════════════════════════════════════════════════
+SECTION 2 — NEW ACTION TYPES
+════════════════════════════════════════════════
+
+ADD these action types to the GameAction union:
+
+WILD_SCATTER:
+  payload: { destroyedFaces: DieFace[] }
+  REDUCER LOGIC:
+    score = wildScatterScore(destroyedFaces)
+    newGrid = apply EMPTY to all destroyed cells (already done in applyWildScatter)
+    unbanked += score
+    wildCount = 0
+    globalEnergyMode stays — Frenzy was already triggered upstream
+    Add ScorePopup: "WILD SCATTER! +{score}"
+    Run cascade after
+
+ROUND_END:
+  payload: { reason: RoundEndReason }
+  REDUCER LOGIC:
+    bank all unbanked → banked (auto-bank)
+    multiplierStep = 0
+    consecutiveChains = 0
+    roundPhase = 'ROUND_END'
+    lastRoundEndReason = reason
+    roundNumber++ (after board reset in next action)
+    If heistState: apply vault split to banked points:
+      vaultContribution = banked * VAULT_SPLIT
+      personalContribution = banked - vaultContribution
+      heistState.vault += vaultContribution
+      heistState.personalScores[localPlayerId] += personalContribution
+      banked = personalContribution (only personal portion in "banked" display)
+
+ROUND_RESET:
+  payload: none
+  REDUCER LOGIC:
+    Create fresh grid via createGrid() with SixPoolManager
+    roundPhase = 'ROLLING'
+    Soft-reset: keep banked score, vault, heistState
+    Reset: unbanked = 0, multiplierStep = 0, wildCount = 0
+
+HEIST_INITIATE:
+  payload: { initiatorId: string }
+  REDUCER LOGIC:
+    Validate: heistState !== null
+    Validate: heistState.betrayalUnlocked[initiatorId] === true
+    Validate: localEnergy >= HEIST_ENERGY_COST (checked before dispatch)
+    Set heistState.activeHeist = {
+      initiatorId,
+      countdownMs: HEIST_WINDOW_MS,
+      blockerIds: [],
+      startedAt: Date.now()
+    }
+    roundPhase = 'HEIST_WINDOW'
+
+HEIST_BLOCK:
+  payload: { blockerId: string }
+  REDUCER LOGIC:
+    If heistState?.activeHeist:
+      Add blockerId to activeHeist.blockerIds
+
+HEIST_RESOLVE:
+  payload: { success: boolean }
+  REDUCER LOGIC:
+    If success:
+      stealAmount = heistState.vault
+      If Archivist role in session:
+        stealAmount = vault * (1 - ARCHIVIST_VAULT_SHIELD)
+        remaining = vault * ARCHIVIST_VAULT_SHIELD (stays in vault)
+      banked += stealAmount
+      heistState.vault = remaining (or 0)
+      heistState.heistCount++
+      heistState.successfulHeisters.push(initiatorId)
+      heistState.activeHeist = null
+      roundPhase = 'ROLLING'
+    If not success:
+      heistState.activeHeist = null
+      roundPhase = 'ROLLING'
+
+TICK_HEIST_WINDOW:
+  payload: { deltaMs: number }
+  REDUCER LOGIC:
+    If heistState?.activeHeist:
+      activeHeist.countdownMs -= deltaMs
+      If countdownMs <= 0: dispatch HEIST_RESOLVE({ success: true })
+
+VAULT_BETRAYAL_CHECK:
+  payload: { playerId: string; energy: number }
+  REDUCER LOGIC:
+    If heistState:
+      unlocked = heistState.vault >= VAULT_THRESHOLD
+                 && energy >= HEIST_ENERGY_COST
+      heistState.betrayalUnlocked[playerId] = unlocked
+
+UPDATE COMMIT_CHAIN (major changes):
+
+  After scoring:
+    1. Call applyChainEnergy via useEnergy (passed as callback)
+    2. If energy would hit 0 → dispatch ROUND_END({ reason: 'ENERGY_ZERO' })
+    3. If score > 0 && chain.length < 6:
+         dispatch ROUND_END({ reason: 'SHORT_CHAIN' })
+         (auto-bank and end round)
+    4. If score > 0 && chain.length === 6:
+         continue round (roundPhase stays 'ROLLING')
+    5. If score === 0 (Farkle):
+         dispatch ROUND_END({ reason: 'FARKLE' })
+         NOTE: Farkle during FRENZY still ends the player's round
+               but they remain on board in multiplayer
+    6. After cascade: call scanForWilds(grid)
+       Update state.wildCount
+       If wildCount >= WILD_BLOCKER_FRENZY_COUNT:
+         const { newGrid, destroyedFaces } = applyWildScatter(grid)
+         grid = newGrid
+         dispatch WILD_SCATTER({ destroyedFaces })
+         forceToFrenzy() (via useEnergy callback)
+
+  Vault contribution in HEIST mode:
+    If heistState && score > 0:
+      vaultContrib = Math.round(score * heistState.vaultSplit)
+      personal = score - vaultContrib
+      unbanked += personal (not full score)
+      heistState.vault += vaultContrib
+      dispatch VAULT_BETRAYAL_CHECK({ playerId, energy })
+
+════════════════════════════════════════════════
+SECTION 3 — useGame HOOK INTEGRATION
+════════════════════════════════════════════════
+
+INSIDE useGame hook body (not reducer):
+
+  // Energy hook — singleplayer drives globalEnergyMode locally
+  const energy = useEnergy({
+    initialEnergy: 75,
+    globalMode: state.globalEnergyMode,
+    onFrenzyTrigger: () => {
+      dispatch({ type: 'SET_GLOBAL_MODE', payload: 'FRENZY' });
+    },
+    onEnergyZero: () => {
+      dispatch({ type: 'ROUND_END', payload: { reason: 'ENERGY_ZERO' } });
+    },
+    paused: state.phase !== 'IDLE' || state.roundPhase === 'ROUND_END',
+  });
+
+  ADD SET_GLOBAL_MODE action:
+    payload: GlobalEnergyMode
+    REDUCER: state.globalEnergyMode = payload
+
+  HEIST countdown ticker (useEffect):
+    If state.roundPhase === 'HEIST_WINDOW' && heistState?.activeHeist:
+      Use setTimeout (not setInterval) to tick every 100ms
+      Dispatch TICK_HEIST_WINDOW({ deltaMs: 100 })
+      Clean up on phase change
+
+════════════════════════════════════════════════
+SECTION 4 — INITIAL STATE
+════════════════════════════════════════════════
+
+initialState additions:
+  roundPhase: 'ROLLING',
+  lastRoundEndReason: null,
+  roundNumber: 1,
+  wildCount: 0,
+  globalEnergyMode: 'PRIME',
+  heistState: settings.mode.includes('HEIST') ? {
+    vault: 0,
+    personalScores: {},
+    vaultSplit: VAULT_SPLIT,
+    betrayalUnlocked: {},
+    activeHeist: null,
+    heistCount: 0,
+    successfulHeisters: [],
+  } : null,
+
+SixPoolManager initialized in useRef:
+  const pool = useRef(
+    new SixPoolManager(playerCount, settings, csprng)
+  );
+
+════════════════════════════════════════════════
+RULES
+════════════════════════════════════════════════
+
+- Do NOT regenerate activeBombs array (bombs are grid-native cells)
+- Do NOT regenerate Bomb.tsx or RainbowBomb.tsx
+- Do NOT use setInterval — setTimeout recursion only
+- Chain min=2 enforced here (not scorer)
+- Keep all existing action types: BANK, RESET, REMOVE_POPUP,
+  END_FARKLE_ANIM, TICK_BOMBS, DETONATE_BOMB, ARCHIVIST_RECOVER
+- SpawnPool → replaced by SixPoolManager entirely
+- No Math.random() in game logic
+- useEnergy is called inside useGame, not separately by consumers
+
+Write FILE COMPLETE then Integration Note.
+
+INTEGRATION NOTE must include:
+- All new action types added
+- COMMIT_CHAIN new flow diagram (chain len < 6 = auto-bank)
+- Heist vault split calculation confirmed
+- energy hook integration point
+- Next prompt: C1 — EnergyMeter.tsx component
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

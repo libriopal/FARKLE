@@ -1,0 +1,142 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D5 — LobbySettings.tsx + HostLobbyPanel.tsx
+Block D: Screens + Auth | Prompt 16 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete files, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+
+USER MESSAGE:
+Generate two files: simplified multiplayer lobby settings and
+host lobby panel with countdown and chat.
+
+─────────────────────────────────────────────
+FILE 1 — apps/client/src/components/LobbySettings.tsx (REPLACE)
+─────────────────────────────────────────────
+
+DESIGN RULE: Multiplayer lobby settings are INTENTIONALLY minimal.
+No game customization (no blocker density, no scoring overrides).
+Only two controls: player count and username whitelist.
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types (HostLobbySettings, LobbySettings)
+- Used by: Lobby.tsx (advanced settings) and HostLobbyPanel.tsx
+
+PROPS:
+  interface LobbySettingsProps {
+    settings: LobbySettings;
+    onChange: (s: LobbySettings) => void;
+  }
+
+VISIBLE CONTROLS:
+
+1. PLAYER COUNT (1–4):
+   Label: "Players in this game"
+   Four buttons: [1] [2] [3] [4]
+   Active: amber-500 bg, zinc-900 text
+   Inactive: zinc-800, zinc-300 text
+   Grid size reminder below: "7×7 board" | "8×8 board" | etc.
+
+2. USERNAME WHITELIST (multiplayer only — playerCount >= 2):
+   Label: "Allowed players (leave empty for open lobby)"
+   Text input: type one username, press Enter or comma to add
+   Chips: each added username shown as removable pill
+     — zinc-700 bg, zinc-300 text, × button to remove
+   Case-insensitive display
+   Placeholder: "Type username and press Enter..."
+   Max 10 entries
+
+NO OTHER CONTROLS:
+  Do NOT add: blocker density, turn timer, scoring overrides,
+  bet amount here (bet is in main Lobby.tsx).
+  This component is intentionally minimal.
+
+─────────────────────────────────────────────
+FILE 2 — apps/client/src/components/HostLobbyPanel.tsx (NEW)
+─────────────────────────────────────────────
+
+MONOREPO CONTEXT:
+- Imports: @farkle/shared/types (HostLobbyState, HostLobbyPlayer,
+  HOST_COUNTDOWN_MS, ChatMessage, UsernameColor)
+- Imports: ChatPanel (for in-lobby chat)
+- Used by: App.tsx when mode is multiplayer and host has created room
+
+PROPS:
+  interface HostLobbyPanelProps {
+    lobbyState: HostLobbyState;
+    localPlayerId: string;
+    isHost: boolean;
+    chatMessages: ChatMessage[];
+    onSendChat: (text: string) => void;
+    onStartGame: () => void;       // Host manually starts
+    onCancelCountdown: () => void; // Host cancels auto-countdown
+    onLeave: () => void;
+  }
+
+LAYOUT:
+
+  ┌─────────────────────────────────────────────┐
+  │  ROOM: {roomId}   MODE: {gameMode}           │
+  ├──────────────────────────┬──────────────────┤
+  │  PLAYER LIST             │  CHAT PANEL      │
+  │  (left 60%)              │  (right 40%)     │
+  ├──────────────────────────┴──────────────────┤
+  │  COUNTDOWN / CONTROLS BAR                   │
+  └─────────────────────────────────────────────┘
+
+PLAYER LIST (left panel):
+  Each joined player row:
+    Left: ASCII art snippet <pre> 32px×32px, font-mono, colored
+    Middle: username (colored), "HOST" badge if isHost
+    Right: join time "joined Xs ago"
+  Empty slots: shown as "[ waiting... ]" zinc-600 dashed border
+    Count = targetPlayerCount - players.length
+
+  Player count progress: "3/4 Players" in amber-400
+
+COUNTDOWN BAR (bottom):
+  CASE 1 — Players < targetPlayerCount:
+    "Waiting for {n} more player(s)..."
+    If isHost: [Start Anyway] button (amber-500)
+
+  CASE 2 — Players === targetPlayerCount AND countdown NOT active:
+    Show: "All players joined!" in emerald-400
+    Auto-start countdown begins (lobbyState.countdown.active = true)
+    If isHost also: [Start Now] button
+
+  CASE 3 — countdown.active === true:
+    Large countdown ring (SVG, same as bomb fuse pattern)
+    remainingMs displayed as seconds (e.g. "28s")
+    Ring drains over HOST_COUNTDOWN_MS (30 seconds)
+    Color: amber-500 → rose-500 in final 5 seconds
+    "Game starts in {n}s" label
+    If isHost: [Cancel Countdown] button (zinc-700)
+
+  CASE 4 — lobby launched:
+    "Launching game..." with spinner
+
+COUNTDOWN BEHAVIOR:
+  Use useEffect + requestAnimationFrame to decrement remainingMs.
+  When reaches 0: call onStartGame().
+  Host can cancel via onCancelCountdown() (stops RAF, resets countdown).
+  Even if players leave after countdown started: game still launches
+  (countdown is not cancelled by player departure).
+
+SHARE LINK:
+  "Share this room: {window.location.origin}/join/{roomId}"
+  Copy button (clipboard API)
+
+Write FILE 1 COMPLETE, then FILE 2 COMPLETE, then Integration Note.
+Next: D6 — GameScreen.tsx revised (screen-fit with energy)
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

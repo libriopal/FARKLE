@@ -1,0 +1,99 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT C1 — EnergyMeter.tsx (NEW)
+Block C: UI Components | Prompt 7 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only — NOT framer-motion.
+Tailwind CSS v4 utility classes only.
+
+USER MESSAGE:
+Generate apps/client/src/components/EnergyMeter.tsx — the per-player
+Prime/Frenzy energy bar. This is a display-only component;
+all energy math lives in useEnergy.
+
+MONOREPO CONTEXT:
+- Imports from @farkle/shared/types:
+    MAX_ENERGY, FRENZY_THRESHOLD, CATCHUP_THRESHOLD,
+    GlobalEnergyMode
+- motion/react for animations
+- Used by: PlayerCard.tsx, GameScreen.tsx
+
+PROPS:
+  interface EnergyMeterProps {
+    energy: number;                    // 0–300
+    globalMode: GlobalEnergyMode;      // 'PRIME' | 'FRENZY'
+    isAnchor: boolean;                 // Highlighted as Frenzy anchor
+    catchupActive: boolean;            // Energy < 75 in Frenzy
+    compact?: boolean;                 // Smaller variant for PlayerCard
+    showLabel?: boolean;               // Show numeric value (default true)
+  }
+
+VISUAL SPEC:
+  LAYOUT: Single horizontal bar, full width of container.
+  Two visual zones separated by a tick at 50% (FRENZY_THRESHOLD/MAX_ENERGY):
+
+  [=====PRIME ZONE=====|=====FRENZY ZONE=====]
+                       ^ tick mark at 50%
+
+  PRIME fill (0–150): gradient left→right
+    from: sky-600, to: blue-500
+    When energy in this range: bar fills from left to tick
+
+  FRENZY fill (150–300): gradient left→right
+    from: orange-500, to: rose-600
+    Both zones fill simultaneously once above threshold
+
+  THRESHOLD TICK: amber-400 vertical line, 2px wide, absolute positioned
+
+  STATUS TAGS (displayed below bar, flex row):
+    LOW ENERGY (energy < 75):
+      → amber-500 text-xs badge, pulsing opacity
+    CRITICAL (energy < 25):
+      → red-500 text-xs badge, fast pulse (0.3s interval)
+    ANCHOR:
+      → if isAnchor: emerald-400 "⚡ ANCHOR" badge
+    CATCHUP:
+      → if catchupActive: sky-300 "↑ CATCH-UP" badge
+
+  PRIME/FRENZY MODE LABEL:
+    Left of bar: "PRIME" text-sky-400 OR "FRENZY" text-rose-400
+    Font: font-black text-xs uppercase tracking-widest
+    Animate between labels with Motion AnimatePresence
+    Exit: opacity → 0, y → -8
+    Enter: opacity → 0 → 1, y → 8 → 0
+
+  TRANSITIONS:
+    PRIME→FRENZY: bar flashes white (opacity 0→0.8→0 over 300ms)
+                  then fills to red/gold gradient
+    FRENZY→PRIME: bar drains right-to-left over 500ms to blue
+
+  COMPACT VARIANT (compact=true):
+    No status tags
+    No mode label
+    Bar height: 6px (vs 14px normal)
+    Threshold tick still shown
+
+FILL CALCULATION:
+  primeFill = Math.min(energy, FRENZY_THRESHOLD) / FRENZY_THRESHOLD * 50%
+  frenzyFill = energy > FRENZY_THRESHOLD
+    ? (energy - FRENZY_THRESHOLD) / FRENZY_THRESHOLD * 50%
+    : 0%
+  Total fill width = primeFill + frenzyFill
+
+NUMERIC VALUE: displayed right of bar, font-black, color matches mode
+
+Write FILE COMPLETE then brief Integration Note.
+Next: C2 — FrenzyOverlay.tsx
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

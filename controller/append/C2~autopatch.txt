@@ -1,0 +1,83 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT C2 — FrenzyOverlay.tsx (NEW)
+Block C: UI Components | Prompt 8 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+
+USER MESSAGE:
+Generate apps/client/src/components/FrenzyOverlay.tsx — visual
+effects overlay for Frenzy mode and Wild Scatter events.
+This is a non-interactive overlay — pointer-events: none always.
+
+MONOREPO CONTEXT:
+- Imports from @farkle/shared/types: GlobalEnergyMode, DieFace
+- motion/react for all animations
+- Positioned as absolute child over the Grid component container
+- Used by: GameScreen.tsx (absolute positioned over grid)
+
+PROPS:
+  interface FrenzyOverlayProps {
+    globalMode: GlobalEnergyMode;
+    isFrenzyInstable: boolean;   // Anchor dropped below threshold
+    wildCount: number;           // Current wild blockers on board
+    scatterActive: boolean;      // Wild Scatter detonating right now
+    scatterFaces: DieFace[];     // Which face colors were scattered
+    gridSizePx: number;          // Pixel size of grid (for scaling effects)
+  }
+
+VISUAL BEHAVIORS:
+
+1. PRIME MODE:
+   No visible overlay (null render or transparent div)
+
+2. FRENZY MODE ACTIVE (globalMode === 'FRENZY', not instable):
+   Board border: inset box-shadow, pulsing rose-500 to amber-400
+   Pulse: 0→0.8s opacity cycle, 1.5s period
+   Border radius matches grid container
+
+3. FRENZY INSTABILITY (isFrenzyInstable === true):
+   2-second flicker: border rapidly alternates rose-500 ↔ transparent
+   Interval: 250ms (8 flickers in 2 seconds)
+   Accompanied by text label: "⚠ FRENZY UNSTABLE" at top-center
+     — amber-400 text, font-black, fades out after 2s
+
+4. WILD BLOCKER GLOW (wildCount >= 3, not yet scattering):
+   Pulsing overlay: radial gradient from center
+   Colors: violet-600 at 0% → transparent at 70%
+   Opacity: 0 → 0.3 → 0, 2s cycle
+   ASCII scatter effect: render 6–10 random "✦" and "◈" characters
+   positioned randomly within grid bounds, fading in/out
+   Color: rotate through face colors (rose, orange, amber, emerald, sky, violet)
+
+5. WILD SCATTER DETONATION (scatterActive === true):
+   Phase 1 (0–200ms): Full white flash across board
+     opacity 0 → 0.9 → 0 via Motion keyframe
+   Phase 2 (200–600ms): Board shake
+     Motion keyframe: x → [-12, 12, -10, 8, -6, 4, -2, 0]
+   Phase 3 (400–800ms): "WILD SCATTER!" text
+     Centered, large, font-black
+     Color: hue-rotate animation 0→360deg over 600ms
+     Scale: 0.8 → 1.3 → 1.0 spring
+
+6. POST-SCATTER: scatterFaces prop shown as colored face icons
+   For each destroyed face: render its color emoji (🔴🟠🟡🟢🔵🟣)
+   Float upward from board center, fade out over 1s
+
+LAYOUT: position absolute, inset-0, pointer-events-none, z-10
+
+Write FILE COMPLETE then brief Integration Note.
+Next: C3 — Tile.tsx Wild Blocker visual patch
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5

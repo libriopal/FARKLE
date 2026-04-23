@@ -1,0 +1,138 @@
+════════════════════════════════════════════════════════════════
+STUDIO PROMPT D6 — GameScreen.tsx (Full Revision — Screen-Fit + Energy)
+Block D: Screens + Auth | Prompt 17 of 19 | Farkle Frenzy Monorepo
+════════════════════════════════════════════════════════════════
+
+SYSTEM INSTRUCTIONS:
+Expert React/TypeScript engineer. Complete file, no truncation.
+Strict mode, no any. motion/react only. Tailwind CSS v4.
+This REPLACES the existing GameScreen.tsx entirely.
+
+USER MESSAGE:
+Replace apps/client/src/components/GameScreen.tsx with the
+revised screen-fit layout incorporating energy meter, round
+phase indicator, Frenzy overlay, and chat panel.
+
+MONOREPO CONTEXT:
+- Imports hooks: useGame, useAudio, useTheme, useUserProfile, useChat
+- Imports components: Grid, EnergyMeter, FrenzyOverlay,
+  ChatPanel, SettingsModal
+- Per THEME_REFERENCE_v1.txt: NO SCROLL, screen-fit layout
+- React StrictMode DISABLED
+
+LAYOUT CONTRACT (must fit 100dvh exactly, zero overflow):
+
+┌─────────────────────────────────────────────────┐
+│  TOP BAR (44px fixed)                           │
+│  [Mode Label]  [Round: N]  [roundPhase badge]  [⚙]│
+├─────────────────────────────────────────────────┤
+│  ENERGY BAR (48px fixed)                        │
+│  [EnergyMeter energy={energy} globalMode=...   ]│
+├─────────────────────────────────────────────────┤
+│  INFO STRIP (36px fixed)                        │
+│  [×M multiplier]  [●●●●●●]  [last combo label] │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│         G R I D  (flex-1, fills remaining)      │
+│     (FrenzyOverlay as absolute child)           │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│  BANK BAR (68px fixed)                          │
+│  [BANKED: 12,500] [AT RISK: +3,450] [BANK]      │
+└─────────────────────────────────────────────────┘
+
+TOTAL FIXED: 44 + 48 + 36 + 68 = 196px
+Grid: calc(100dvh - 196px)
+
+TOP BAR:
+  Left: Mode label (e.g. "SOLO FREE" or "RALLY") text-zinc-400 text-sm
+  Center: "Round {roundNumber}" in amber-400 font-black
+  Center-right: Round phase badge:
+    ROLLING → emerald-500 dot + "ROLLING"
+    FRENZY_ACTIVE → rose-500 pulsing dot + "FRENZY"
+    HEIST_WINDOW → amber-500 pulsing dot + "HEIST"
+    ROUND_END → zinc-500 + "BANKING..."
+  Right: ⚙ button (U+2699, text-zinc-400, hover:amber-400)
+    Opens SettingsModal
+
+ENERGY BAR (new, replaces nothing — this is a new zone):
+  Full-width EnergyMeter component
+  Props: { energy, globalMode, isAnchor, catchupActive }
+  Background: zinc-900 strip with 4px border-b zinc-800
+
+INFO STRIP (unchanged from THEME_REFERENCE_v1.txt spec):
+  Left: "×{multiplierValue}" in amber-400 font-black
+  Center: 6-dot ladder
+  Right: Last combo label (zinc-400 or red-400 for FARKLE)
+
+GRID CONTAINER:
+  ResizeObserver for dynamic cell sizing
+  cellSize = Math.floor((min(containerW, containerH) - padding) / gridDim)
+  Min: 28px, Max: 72px, gap: 2px
+  FrenzyOverlay rendered as absolute child (inset-0, pointer-events-none)
+
+BANK BAR (per THEME_REFERENCE_v1.txt — unchanged):
+  [BANKED]  |  [AT RISK pulsing]  |  [BANK button]
+
+ROUND END OVERLAY:
+  When roundPhase === 'ROUND_END':
+    Overlay (z-40) over grid: semi-transparent zinc-950/80
+    Center content:
+      Reason badge: "FARKLE" (red) | "BANKED" (green) | "OUT OF ENERGY" (amber)
+      Banked amount: "+{banked}" in large emerald-400
+      "Next Round begins in 3s..." countdown
+      [New Round Now] button (host or singleplayer)
+    After 3s: dispatch ROUND_RESET automatically
+
+WILD SCATTER FEEDBACK:
+  When state dispatches WILD_SCATTER:
+    FrenzyOverlay.scatterActive = true (for 800ms)
+    Audio: playWildScatter() (call useAudio)
+    After 800ms: scatterActive = false
+
+HEIST INTEGRATION:
+  If settings.mode.includes('HEIST'):
+    Replace BankBar with HeistPanel component
+    HeistPanel receives heistState + onInitiateHeist + onBlockHeist
+    onInitiateHeist: validates energy >= 50, dispatches HEIST_INITIATE
+    onBlockHeist: dispatches HEIST_BLOCK
+
+CHAT PANEL:
+  ChatPanel rendered fixed bottom-left (z-20)
+  Only shown in multiplayer modes (playerCount > 1)
+  useChat hook initialized with roomId from settings
+
+SETTINGS MODAL:
+  AnimatePresence on SettingsModal isOpen state
+  Profile passed from useUserProfile().activeProfile
+
+AUDIO INTEGRATION:
+  useEffect on roundPhase:
+    ROUND_END + reason === 'FARKLE': playFarkle()
+    ROUND_END + reason !== 'FARKLE': playBank()
+  useEffect on globalMode change:
+    PRIME→FRENZY: playFrenzyTransition() (new audio function)
+    FRENZY→PRIME: playPrimeReturn() (new audio function)
+  Note: add playFrenzyTransition + playPrimeReturn stubs to useAudio
+
+RULES:
+  - NO SCROLL — all content fits 100dvh
+  - FrenzyOverlay always rendered (hidden in PRIME mode by component)
+  - SettingsModal controlled by local isSettingsOpen state
+  - Do NOT import from 'framer-motion'
+  - Do NOT regenerate activeBombs array, Bomb.tsx, RainbowBomb.tsx
+  - Do NOT add AP system or old Frenzy HUD
+
+Write FILE COMPLETE then Integration Note.
+Next: D7 — HeistGameScreen.tsx + App.tsx (final routing)
+════════════════════════════════════════════════════════════════
+
+==================================================
+SELF-HEALING CONTROLLER TRIGGER BLOCK
+==================================================
+// Ensure the system instructions from system_instructions.md are appended.
+// Paste the following snippet into the chat at the end of the patch generation.
+
+TRIGGER_SELF_HEALING_LOOP: true
+EXPECTED_OUTPUT: "Commencing automated repair sequence..."
+MAX_ATTEMPTS: 5
